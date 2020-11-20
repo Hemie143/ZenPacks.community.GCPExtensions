@@ -1,0 +1,141 @@
+name: ZenPacks.community.GCPExtensions
+
+class_relationships:
+#   - ProjectDevice(cloudSQLInstances) 1:MC (project)CloudSQLInstance
+#   - Products.ZenModel.Device.Device(cloudSQLInstances) 1:MC (project)CloudSQLInstance
+  - ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice(cloudSQLInstances) 1:MC (project)CloudSQLInstance
+  - ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice(subcriptions) 1:MC (project)Subcription
+  - CloudSQLInstance(cloudSQLDatabases) 1:MC (cloudSQLInstance)CloudSQLDatabase
+
+# - Products.ZenModel.Device.Device(tests) 1:MC (project)Test
+#   - Products.ZenModel.Device.Device(silicons) 1:MC (project)Silicon
+#   - Products.ZenModel.Device.Device(sQLInstances) 1:MC (project)SQLInstance
+#   - CloudSQLInstance 1:MC CloudSQLDatabase
+#   - ComputeZone(cloudSQLInstances) 1:M (zone)CloudSQLInstance
+  - ZenPacks.zenoss.GoogleCloudPlatform.ComputeZone.ComputeZone(cloudSQLInstances) 1:M (zone)CloudSQLInstance
+#   - ComputeZone(bigTableClusters) 1:M (zone)BigTableCluster
+
+classes:
+#   ProjectDevice:
+#     base: [zenpacklib.Device, ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice]
+#     base: [zenpacklib.Device]
+
+  CloudSQLInstance:
+    base: [zenpacklib.Component]
+    label: CloudSQL Instance
+    properties:
+      DEFAULTS:
+        grid_display: false
+      gke_name:
+        label: GKE NAME
+        grid_display: false
+      backendType:
+        label: Backend Type
+        grid_display: false
+      gceZone:
+        label: GCE Zone
+        grid_display: false
+      secondaryGceZone:
+        label: Secondary GCE Zone
+        grid_display: false
+      region:
+        label: Region
+        grid_display: false
+      projectName:
+        label: Project
+        grid_display: false
+      ipAddress:
+        label: IP Address
+        grid_display: false
+      connectionName:
+        label: Connection Name
+        grid_display: false
+      databaseVersion:
+        label: Database Version
+        grid_display: false
+      database_id:
+        label: Database ID
+        grid_display: false
+
+
+  CloudSQLDatabase:
+    base: [zenpacklib.Component]
+    label: CloudSQL Database
+    properties:
+      DEFAULTS:
+        grid_display: false
+      charset:
+        grid_display: false
+      etag:
+        grid_display: false
+      collation:
+        grid_display: false
+      selfLink:
+        grid_display: false
+      shortname:
+        grid_display: false
+
+  Subcription:
+    base: [zenpacklib.Component]
+    label: Subscription
+    properties:
+      DEFAULTS:
+        grid_display: false
+
+device_classes:
+  /GoogleCloudPlatform:
+
+    templates:
+      CloudSQLInstance:
+        targetPythonClass: ZenPacks.community.GCPExtensions.CloudSQLInstance
+        datasources:
+          cpu_utilization:
+            type: Google Cloud Platform Stackdriver Monitoring
+            aggregator: SUM_OR_ZERO
+            crossSeriesReducer: REDUCE_NONE
+            filter_: resource.labels.database_id="${here/database_id}"
+            metric_type: cloudsql.googleapis.com/database/cpu/utilization
+            perSeriesAligner: ALIGN_MEAN
+            service: cloudsql.googleapis.com
+            datapoints:
+              cpu_utilization: GAUGE_MIN_0_MAX_100
+          mem_utilization:
+            type: Google Cloud Platform Stackdriver Monitoring
+            aggregator: PERCENT_AVERAGE
+            crossSeriesReducer: REDUCE_NONE
+            filter_: resource.labels.database_id="${here/database_id}"
+            metric_type: cloudsql.googleapis.com/database/memory/utilization
+            perSeriesAligner: ALIGN_MEAN
+            service: cloudsql.googleapis.com
+            datapoints:
+              mem_utilization: GAUGE_MIN_0_MAX_100
+
+        graphs:
+          CPU Utilization:
+            units: percent
+            miny: 0.0
+            maxy: 100.0
+            graphpoints:
+              CPU Utilization:
+                dpName: cpu_utilization_cpu_utilization
+          Memory Utilization:
+            units: percent
+            miny: 0.0
+            maxy: 100.0
+            graphpoints:
+              Memory Utilization:
+                dpName: mem_utilization_mem_utilization
+
+
+      CloudSQLDatabase:
+        targetPythonClass: ZenPacks.community.GCPExtensions.CloudSQLDatabase
+        datasources:
+          connections:
+            type: Google Cloud Platform Stackdriver Monitoring
+            aggregator: SUM_OR_ZERO
+            filter_: metric.labels.database=${here/shortname}
+            metric_type: cloudsql.googleapis.com/database/postgresql/num_backends
+            perSeriesAligner: ALIGN_MEAN
+            service: cloudsql.googleapis.com
+            datapoints:
+              connections: GAUGE_MIN_0

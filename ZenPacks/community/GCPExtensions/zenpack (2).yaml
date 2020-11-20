@@ -1,0 +1,3678 @@
+##############################################################################
+#
+# Copyright (C) Zenoss, Inc. 2018-2019, all rights reserved.
+#
+# This content is made available according to terms specified in
+# License.zenoss under the directory where your Zenoss product is installed.
+#
+##############################################################################
+
+name: ZenPacks.zenoss.GoogleCloudPlatform
+
+##############################################################################
+
+zProperties:
+  DEFAULTS:
+    category: Google Cloud Platform
+
+  zGoogleCloudPlatformProjectId: {}
+  zGoogleCloudPlatformClientEmail: {}
+  zGoogleCloudPlatformPrivateKey:
+    type: password
+
+  zGoogleCloudPlatformGuestUseExternalIP:
+    type: boolean
+    default: true
+
+  zGoogleCloudPlatformStackDriverMonitoringInterval:
+    type: int
+    default: 300
+
+  zGoogleCloudPlatformQuotaInterval:
+    type: int
+    default: 300
+
+  zGoogleCloudPlatformStatusInterval:
+    type: int
+    default: 300
+
+  zGoogleCloudPlatformActivityLogSubscriptionName: {}
+
+  zGoogleCloudPlatformActivityLogInterval:
+    type: int
+    default: 300
+
+  zGoogleCloudPlatformComputeMaxResults:
+    type: int
+    default: 500
+
+  zGoogleCloudPlatformMonitoringPageSize:
+    type: int
+    default: 100000
+
+  zGoogleCloudPlatformBillingTableId: {}
+
+  zGoogleCloudPlatformBillingProjectId: {}
+
+  zGoogleCloudPlatformBillingCostThreshold:
+    type: int
+    default: 1000
+
+  zGoogleCloudPlatformFunctionWhitelist:
+    type: lines
+    default: ['.*']
+
+  zGoogleCloudPlatformDataflowJobNamesModeled:
+    type: lines
+
+  zGoogleCloudPlatformBigQueryDatasetsModeled:
+    type: lines
+
+  zGoogleCloudPlatformBigTableInstancesModeled:
+    type: lines
+
+  zGoogleCloudPlatformBigTableClustersModeled:
+    type: lines
+
+  zGoogleCloudPlatformBigTableAppProfilesModeled:
+    type: lines
+
+  zGoogleCloudPlatformBigTableTablesModeled:
+    type: lines
+
+  zGoogleCloudPlatformDiscoverGuests:
+    type: boolean
+    default: false
+    description: Boolean to switch on/off guest discovery.
+
+  # Labels that determin Guest inclusion
+  zGoogleCloudPlatformGuestLabels:
+    type: gcpguestlabels
+    label: Guest Device Class Labels
+    description: Ensure Guest Device creation with required device class.
+    default: []
+
+  zGoogleCloudPlatformResetGuestCollector:
+    type: boolean
+    label: Guest Device Resets Collector
+    description: Allow Guest Device to determine its own device collector.
+    default: false
+
+  zGoogleCloudPlatformAutoChangeProdState:
+    type: boolean
+    label: Auto Change Production State
+    description: Automatically change production states for guests when instace state changes.
+    default: false
+
+##############################################################################
+
+class_relationships:
+
+  # 1:MC containing relationships.
+  # ---------------------------------------------------------------------------
+
+  # Compute
+  - ProjectDevice(regions) 1:MC (project)ComputeRegion
+  - ProjectDevice(zones) 1:MC (project)ComputeZone
+  - ProjectDevice(images) 1:MC (project)ComputeImage
+  - ProjectDevice(snapshots) 1:MC (project)ComputeSnapshot
+  - ProjectDevice(instanceTemplates) 1:MC (project)ComputeInstanceTemplate
+  - ProjectDevice(kClusters) 1:MC (project)KubernetesCluster
+  - ProjectDevice(dataflowJobs) 1:MC (project)Dataflow
+  - ProjectDevice(buckets) 1:MC (project)StorageBucket
+  - ProjectDevice(label_filters) 1:MC (project)LabelFilter
+  - ProjectDevice(datasets) 1:MC (project)BigQuery
+  - ProjectDevice(bigTableInstances) 1:MC (project)BigTableInstance
+
+  # ProjectDevice & ComputeRegion can contain quotas.
+  - ComputeQuotaContainer(quotas) 1:MC (container)ComputeQuota
+
+  # ComputeRegion & ComputeZone can contain instance groups.
+  - ComputeInstanceGroupContainer(instanceGroups) 1:MC (container)ComputeInstanceGroup
+
+  - ComputeZone(machineTypes) 1:MC (zone)ComputeMachineType
+  - ComputeZone(diskTypes) 1:MC (zone)ComputeDiskType
+  - ComputeZone(disks) 1:MC (zone)ComputeDisk
+  - ComputeZone(instances) 1:MC (zone)ComputeInstance
+
+  - ComputeInstance(networkInterfaces) 1:MC (instance)ComputeNetworkInterface
+
+  # Kubernetes
+  - KubernetesCluster(nodePools) 1:MC (kCluster)KubernetesNodePool
+
+  # CloudFunction is unique per ComputeRegion:
+  - ComputeRegion(functions) 1:MC (region)CloudFunction
+
+  # Big Table
+  - BigTableInstance(bigTableClusters) 1:MC (bigTableInstance)BigTableCluster
+  - BigTableInstance(bigTableAppProfiles) 1:MC (bigTableInstance)BigTableAppProfile
+  - BigTableInstance(bigTableTables) 1:MC (bigTableInstance)BigTableTable
+
+  # 1:M non-containing relationships.
+  # ---------------------------------------------------------------------------
+
+  - ComputeRegion(zones) 1:M (region)ComputeZone
+
+  - ComputeInstanceTemplate(instances) 1:M (instanceTemplate)ComputeInstance
+  - ComputeInstanceTemplate(instanceGroups) 1:M (instanceTemplate)ComputeInstanceGroup
+
+  - ComputeZone(bigTableClusters) 1:M (zone)BigTableCluster
+  - BigTableCluster(bigTableAppProfiles) 1:M (bigTableCluster)BigTableAppProfile
+
+  # instances/instanceGroup relationship is deprecated (ZPS-4695)
+  - ComputeInstanceGroup(instances) 1:M (instanceGroup)ComputeInstance
+  - ComputeInstanceGroup(instances2) M:M (instanceGroups2)ComputeInstance
+
+  - ComputeImage(disks) 1:M (sourceImage)ComputeDisk
+
+  - ComputeMachineType(instances) 1:M (machineType)ComputeInstance
+
+  - ComputeDiskType(disks) 1:M (diskType)ComputeDisk
+
+  - ComputeDisk(snapshots) 1:M (sourceDisk)ComputeSnapshot
+
+  - KubernetesNodePool(instanceGroups) 1:M (nodePool)ComputeInstanceGroup
+
+  # M:M non-containing relationships.
+  # ---------------------------------------------------------------------------
+
+  - ComputeDisk(instances) M:M (disks)ComputeInstance
+  - ComputeZone(kClusters) M:M (zones)KubernetesCluster
+  - ComputeRegion(dataflowJobs) M:M (regions)Dataflow
+
+#######################################################################
+
+classes:
+  BaseDevice:
+    base: [zenpacklib.Device]
+
+  BaseComponent:
+    base: [zenpacklib.Component]
+
+  BigQuery:
+    base: [BaseComponent]
+    label: BigQuery Dataset
+    label_width: 50
+    meta_type: GoogleCloudPlatformBigQuery
+    monitoring_templates: [BigQuery]
+    dynamicview_weight: 20
+    dynamicview_views: [service_view]
+    dynamicview_group: GCP BigQuery
+    dynamicview_relations:
+      impacted_by: [project]
+
+    properties:
+      DEFAULTS:
+        grid_display: true
+      title:
+        label: Name
+        grid_display: false
+      friendlyName:
+        label : Friendly Name
+        grid_display: false
+      location:
+        label: Location
+      creationTime:
+        label: Created
+        label_width: 200
+      lastModifiedTime:
+        label: Last Modified
+        label_width: 200
+      access:
+        label: Access
+        grid_display: false
+
+  ComputeKind:
+    base: [object]
+    label: Compute Kind
+    meta_type: GoogleCloudPlatformComputeKind
+
+    properties:
+      gce_name:
+        label: Name
+        grid_display: false
+
+      gce_creationTimestamp:
+        label: Creation Timestamp
+        grid_display: false
+
+      gce_kind:
+        label: GCE Kind
+        grid_display: false
+
+      gce_id:
+        label: GCE ID
+        grid_display: false
+
+      gce_selfLink:
+        label: GCE Self-Link
+        grid_display: false
+
+  ComputeQuotaContainer:
+    # subclassed by ProjectDevice and ComputeRegion
+    base: [object]
+    label: Container
+    label_width: 55
+    content_width: 150
+    meta_type: GoogleCloudPlatformComputeQuotaContainer
+
+  ComputeInstanceGroupContainer:
+    # subclassed by ComputeRegion and ComputeZone
+    base: [object]
+    label: Zone
+    meta_type: GoogleCloudPlatformComputeInstanceGroupContainer
+
+  ProjectDevice:
+    # kind: compute#project
+    base: [BaseDevice, ComputeKind, ComputeQuotaContainer]
+    label: Google Cloud Project
+    meta_type: GoogleCloudPlatformProjectDevice
+
+    dynamicview_views: [service_view, gcp_view]
+    dynamicview_group: GCP Projects
+    dynamicview_weight: 286
+    dynamicview_relations:
+      impacts: [regions, dataflowJobs, datasets, buckets, bigTableInstances]
+      gcp_link: [regions]
+
+    properties:
+      defaultServiceAccount:
+        label: Default Service Account
+
+      xpnProjectStatus:
+        label: XPN Project Status
+
+    relationships:
+      dataflowJobs: {}
+      buckets: {}
+      datasets: {}
+      bigTableInstances: {}
+
+  ComputeRegion:
+    # kind: compute#region
+    base: [BaseComponent, ComputeKind, ComputeQuotaContainer, ComputeInstanceGroupContainer]
+    label: Region
+    label_width: 40
+    content_width: 80
+    meta_type: GoogleCloudPlatformRegion
+    monitoring_templates: [ComputeRegion]
+
+    dynamicview_views: [service_view, gcp_view]
+    dynamicview_group: GCP Regions
+    dynamicview_weight: 285
+    dynamicview_relations:
+      impacted_by: [project]
+      impacts: [zones, functions]
+      gcp_link: [zones, instanceGroups]
+
+    properties:
+      description:
+        label: Description
+        label_width: 60
+        content_width: 100
+        grid_display: false
+
+      status:
+        label: Status
+        label_width: 35
+        content_width: 60
+        datapoint: status_status
+        datapoint_default: -2
+        # http://googlecloudplatform.github.io/google-cloud-java/0.5.0/apidocs/com/google/cloud/compute/Region.Status.html
+        enum:
+          -2: PENDING
+          -1: MISSING
+          0: UNKNOWN
+          1: DOWN
+          2: UP
+
+    relationships:
+      quotas:
+        grid_display: false
+      dataflowJobs:
+        label: Dataflow Jobs
+        grid_display: false
+
+  ComputeImage:
+    # kind: compute#image
+    base: [BaseComponent, ComputeKind]
+    label: Image
+    label_width: 35
+    content_width: 150
+    meta_type: GoogleCloudPlatformComputeImage
+    monitoring_templates: [ComputeImage]
+
+    properties:
+      description:
+        label: Description
+        label_width: 60
+        content_width: 150
+
+      family:
+        label: Family
+        label_width: 40
+        content_width: 190
+
+      diskSize:
+        label: Disk Size
+        label_width: 50
+        content_width: 65
+        renderer: Zenoss.render.bytesString
+        type: int
+
+      archiveSize:
+        label: Archive Size
+        label_width: 65
+        content_width: 65
+        renderer: Zenoss.render.bytesString
+        type: int
+
+      labels:
+        label: Labels
+        type: lines
+        grid_display: false
+        renderer: Zenoss.render.label_entityLink
+
+      status:
+        label: Status
+        label_width: 35
+        content_width: 60
+        datapoint: status_status
+        datapoint_default: -2
+        # http://googlecloudplatform.github.io/google-cloud-java/0.5.0/apidocs/com/google/cloud/compute/ImageInfo.Status.html
+        enum:
+          -2: PENDING
+          -1: MISSING
+          0: UNKNOWN
+          1: FAILED
+          2: PENDING
+          3: READY
+
+  ComputeSnapshot:
+    # kind: compute#snapshot
+    base: [BaseComponent, ComputeKind]
+    label: Snapshot
+    label_width: 50
+    content_width: 150
+    meta_type: GoogleCloudPlatformComputeSnapshot
+    monitoring_templates: [ComputeSnapshot]
+
+    properties:
+      diskSize:
+        label: Disk Size
+        label_width: 50
+        content_width: 65
+        renderer: Zenoss.render.bytesString
+        type: int
+
+      storageSize:
+        label: Archive Size
+        label_width: 65
+        content_width: 65
+        renderer: Zenoss.render.bytesString
+        type: int
+
+      storageStatus:
+        label: Storage Status
+        label_width: 80
+        content_width: 80
+        datapoint: storageStatus_storageStatus
+        datapoint_default: -2
+        # http://googlecloudplatform.github.io/google-cloud-java/0.5.0/apidocs/com/google/cloud/compute/SnapshotInfo.StorageBytesStatus.html
+        enum:
+          -2: PENDING
+          -1: MISSING
+          0: UNKNOWN
+          1: UP_TO_DATE
+          2: UPDATING
+
+      labels:
+        label: Labels
+        type: lines
+        grid_display: false
+        renderer: Zenoss.render.label_entityLink
+
+      status:
+        label: Status
+        label_width: 35
+        content_width: 60
+        datapoint: status_status
+        datapoint_default: -2
+        # http://googlecloudplatform.github.io/google-cloud-java/0.5.0/apidocs/com/google/cloud/compute/SnapshotInfo.Status.html
+        enum:
+          -2: PENDING
+          -1: MISSING
+          0: UNKNOWN
+          1: CREATING
+          2: DELETING
+          3: FAILED
+          4: READY
+          5: UPLOADING
+
+  ComputeInstanceTemplate:
+    # kind: compute#instanceTemplate
+    base: [BaseComponent, ComputeKind]
+    label: Instance Template
+    label_width: 90
+    content_width: 200
+    meta_type: GoogleCloudPlatformComputeInstanceTemplate
+
+    properties:
+      description:
+        label: Description
+        label_width: 60
+        content_width: 150
+
+      machineType:
+        label: Machine Type
+        label_width: 75
+        content_width: 100
+
+      minCpuPlatform:
+        label: Minimum CPU Platform
+        short_label: Minimum CPU
+        label_width: 75
+        content_width: 100
+
+      disks_count:
+        label: Number of Disks
+        short_label: Disks
+        label_width: 30
+        content_width: 25
+        type: int
+
+      networkInterfaces_count:
+        label: Number of Network Interfaces
+        short_label: NICs
+        label_width: 30
+        content_width: 25
+        type: int
+
+      labels:
+        label: Labels
+        type: lines
+        grid_display: false
+        renderer: Zenoss.render.label_entityLink
+
+  ComputeQuota:
+    # kind: n/a (quotas don't have a kind)
+    base: [BaseComponent]
+    label: Quota
+    label_width: 40
+    content_width: 305
+    meta_type: GoogleCloudPlatformComputeQuota
+    monitoring_templates: [ComputeQuota]
+
+    properties:
+      metric:
+        label: Metric
+        label_width: 35
+        content_width: 240
+
+      usage:
+        label: Usage
+        label_width: 35
+        content_width: 60
+        type: int
+        datapoint: quota_usage
+        renderer: Zenoss.render.gcp_toLocaleString
+
+      limit_modeled:
+        label: Limit
+        label_width: 30
+        content_width: 60
+        type: float
+        renderer: Zenoss.render.gcp_toLocaleString
+
+      threshold_maxval_user:
+        label: Maximum Threshold
+        type: string
+        default: "max(0, min(here.limit_modeled - 2, here.limit_modeled * 0.9))"
+        editable: true
+        grid_display: false
+
+    relationships:
+      container:
+        grid_display: false
+
+  ComputeZone:
+    # kind: compute#zone
+    base: [BaseComponent, ComputeKind, ComputeQuotaContainer, ComputeInstanceGroupContainer]
+    label: Zone
+    label_width: 35
+    content_width: 80
+    meta_type: GoogleCloudPlatformZone
+    monitoring_templates: [ComputeZone]
+
+    dynamicview_views: [service_view, gcp_view]
+    dynamicview_group: GCP Zones
+    dynamicview_weight: 284
+    dynamicview_relations:
+      impacted_by: [region]
+      impacts: [disks, instances, bigTableClusters]
+      gcp_link: [instanceGroups]
+
+    properties:
+      description:
+        label: Description
+        grid_display: false
+
+      availableCpuPlatforms:
+        label: Available CPU Platforms
+        short_label: CPU Platforms
+        label_width: 80
+        content_width: 240
+        type: lines
+
+      status:
+        label: Status
+        label_width: 35
+        content_width: 60
+        datapoint: status_status
+        datapoint_default: -2
+        # http://googlecloudplatform.github.io/google-cloud-java/0.5.0/apidocs/com/google/cloud/compute/Zone.Status.html
+        enum:
+          -2: PENDING
+          -1: MISSING
+          0: UNKNOWN
+          1: DOWN
+          2: UP
+
+      discoverGuests:
+        label: Discover Guests
+        api_only: false
+        display: false
+
+    relationships:
+      quotas:
+        grid_display: false
+
+  ComputeDiskType:
+    # kind: compute#diskType
+    base: [BaseComponent, ComputeKind]
+    label: Disk Type
+    label_width: 55
+    content_width: 150
+    meta_type: GoogleCloudPlatformComputeDiskType
+
+    properties:
+      description:
+        label: Description
+        label_width: 60
+        content_width: 150
+
+      defaultDiskSize:
+        label: Default Disk Size
+        label_width: 90
+        content_width: 60
+        type: int
+        renderer: Zenoss.render.bytesString
+
+      validDiskSize:
+        label: Valid Disk Size
+        label_width: 80
+        content_width: 100
+        type: string
+
+  ComputeDisk:
+    # kind: compute#disk
+    base: [BaseComponent, ComputeKind]
+    label: Disk
+    label_width: 25
+    content_width: 220
+    meta_type: GoogleCloudPlatformComputeDisk
+    monitoring_templates: [ComputeDisk]
+
+    dynamicview_views: [service_view]
+    dynamicview_group: GCP Disks
+    dynamicview_weight: 283
+    dynamicview_relations:
+      impacted_by: [zone]
+      impacts: [instances]
+
+    properties:
+      size:
+        label: Size
+        label_width: 25
+        content_width: 60
+        type: int
+        renderer: Zenoss.render.bytesString
+
+      lastAttachTimestamp:
+        label: Last Attach Timestamp
+        label_width: 120
+        content_width: 165
+        grid_display: false
+        type: string
+
+      lastDetachTimestamp:
+        label: Last Detach Timestamp
+        label_width: 120
+        content_width: 165
+        grid_display: false
+        type: string
+
+      labels:
+        label: Labels
+        type: lines
+        grid_display: false
+        renderer: Zenoss.render.label_entityLink
+
+  ComputeMachineType:
+    # kind: compute#machineType
+    base: [BaseComponent, ComputeKind]
+    label: Machine Type
+    label_width: 75
+    content_width: 160
+    meta_type: GoogleCloudPlatformComputeMachineType
+
+    properties:
+      description:
+        label: Description
+        label_width: 60
+        content_width: 250
+        grid_display: false
+
+      guestCpus:
+        label: Guest CPUs
+        short_label: CPUs
+        label_width: 30
+        content_width: 25
+        type: int
+
+      isSharedCpu:
+        label: Shared CPU
+        label_width: 65
+        content_width: 20
+        type: boolean
+
+      memory:
+        label: Memory
+        label_width: 45
+        content_width: 60
+        type: int
+        renderer: Zenoss.render.bytesString
+
+      maximumPersistentDisks:
+        label: Maximum Persistent Disks
+        short_label: Max Disks
+        label_width: 55
+        content_width: 30
+        type: int
+
+      maximumPersistentDisksSize:
+        label: Maximum Persistent Disks Size
+        short_label: Max Disks Size
+        label_width: 90
+        content_width: 60
+        type: int
+        renderer: Zenoss.render.bytesString
+
+      imageSpace:
+        label: Image Space
+        label_width: 70
+        content_width: 60
+        type: int
+        renderer: Zenoss.render.bytesString
+
+  ComputeInstance:
+    # kind: compute#instance
+    base: [BaseComponent, ComputeKind]
+    label: Instance
+    label_width: 50
+    content_width: 150
+    meta_type: GoogleCloudPlatformComputeInstance
+    monitoring_templates: [ComputeInstance]
+
+    dynamicview_views: [service_view]
+    dynamicview_group: GCP Instances
+    dynamicview_weight: 281
+    dynamicview_relations:
+      impacted_by: [zone, disks, networkInterfaces]
+      impacts: [instanceGroups2, guest_device, k8sNode]
+
+    properties:
+      description:
+        label: Description
+        label_width: 60
+        content_width: 160
+        grid_display: false
+
+      guest_device:
+        label: Guest
+        label_width: 35
+        content_width: 110
+        type: entity
+        api_only: true
+        api_backendtype: method
+
+      cpuPlatform:
+        label: CPU Platform
+        label_width: 70
+        content_width: 90
+        grid_display: false
+
+      manageIP:
+        label: Management IP
+        short_label: Manage IP
+        label_width: 60
+        content_width: 90
+        grid_display: false
+        type: string
+        index_type: field
+        index_scope: global
+
+      networkIPs:
+        label: Network IPs
+        label_width: 65
+        content_width: 90
+        type: lines
+
+      natIPs:
+        label: NAT IPs
+        label_width: 45
+        content_width: 90
+        type: lines
+
+      canIpForward:
+        label: IP Forwarding
+        label_width: 75
+        content_width: 20
+        grid_display: false
+        type: boolean
+
+      inKubernetesCluster:
+        label: In Kubernetes
+        label_width: 75
+        content_width: 20
+        grid_display: false
+        type: boolean
+        default: false
+
+      k8sNode:
+        label: Kubernetes ZenPack Node
+        type: entity
+        grid_display: false
+        api_only: true
+        api_backendtype: method
+
+      labels:
+        label: Labels
+        type: lines
+        grid_display: false
+        renderer: Zenoss.render.label_entityLink
+
+      status:
+        label: Status
+        label_width: 35
+        content_width: 75
+        datapoint: status_status
+        datapoint_default: -2
+        # https://googlecloudplatform.github.io/google-cloud-java/0.47.0/apidocs/com/google/cloud/compute/deprecated/InstanceInfo.Status.html
+        enum:
+          -2: PENDING
+          -1: MISSING
+          0: UNKNOWN
+          1: PROVISIONING
+          2: STAGING
+          3: RUNNING
+          4: STOPPING
+          5: STOPPED
+          6: SUSPENDING
+          7: SUSPENDED
+          8: TERMINATED
+
+      derivedProductionState:
+        # Incremental modeling has to set 'status' so we initially set it at
+        # model time where we have access to the status from API.
+        # Keep this as an int to avoid excess conversion.
+        type: int
+        label: Production State Derived from zGoogleCloudPlatformGuestLabels
+        display: false
+
+    relationships:
+      zone:
+        grid_display: false
+
+      # instanceGroup relationship is deprecated (ZPS-4695)
+      instanceGroup:
+        display: false
+
+      instanceGroups2:
+        grid_display: false
+
+      instanceTemplate:
+        grid_display: false
+
+      disks:
+        grid_display: false
+
+      networkInterfaces:
+        grid_display: false
+
+  ComputeNetworkInterface:
+    # kind: compute#networkInterface
+    base: [BaseComponent, ComputeKind]
+    label: Network Interface
+    short_label: NIC
+    label_width: 50
+    content_width: 250
+    meta_type: GoogleCloudPlatformComputeNetworkInterface
+
+    properties:
+      networkIP:
+        label: Network IP
+        label_width: 60
+        content_width: 90
+
+      natIPs:
+        label: NAT IPs
+        label_width: 45
+        content_width: 90
+        type: lines
+
+      accessConfig0_name:
+        label: Access
+        label_width: 40
+        content_width: 100
+
+      accessConfig0_type:
+        label: Access Type
+        label_width: 65
+        content_width: 120
+
+    dynamicview_views: [service_view]
+    dynamicview_group: GCP NICs
+    dynamicview_weight: 282
+    dynamicview_relations:
+      impacts: [instance]
+
+  ComputeInstanceGroup:
+    # kind: compute#instanceGroup & compute#regionInstanceGroup
+    base: [BaseComponent, ComputeKind]
+    label: Instance Group
+    label_width: 85
+    content_width: 220
+    meta_type: GoogleCloudPlatformComputeInstanceGroup
+    monitoring_templates: [ComputeInstanceGroup]
+
+    dynamicview_views: [service_view, gcp_view]
+    dynamicview_group: GCP Instance Groups
+    dynamicview_weight: 19
+    dynamicview_relations:
+      impacted_by: [instances2]
+      impacts: [nodePool]
+      gcp_link: [nodePool]
+
+    properties:
+      description:
+        label: Description
+        label_width: 60
+        content_width: 150
+        grid_display: false
+
+      managed:
+        label: Managed
+        label_width: 50
+        content_width: 20
+        type: boolean
+        default: false
+
+      multi_zone:
+        label: Multi-Zone
+        label_width: 55
+        content_width: 20
+        type: boolean
+
+      size:
+        label: Size
+        label_width: 25
+        content_width: 30
+        type: int
+
+      targetSize:
+        label: Target Size
+        label_width: 60
+        content_width: 30
+        type: int
+
+      baseInstanceName:
+        label: Base Instance
+        label_width: 75
+        content_width: 180
+        grid_display: false
+
+      maxInstances:
+        label: Max Instances
+        type: int
+
+      minInstances:
+        label: Min Instances
+        type: int
+
+      utilizationTarget:
+        label: Utilization Target
+        type: int
+        renderer: Zenoss.render.gcp_percentage
+
+    relationships:
+      # instances relationship is deprecated (ZPS-4695)
+      instances:
+        display: false
+
+  KubernetesCluster:
+    # Honorary kind: "kubernetes#cluster"
+    base: [BaseComponent]
+    label: Kubernetes Cluster
+    label_width: 100
+    meta_type: GoogleCloudPlatformKubernetesCluster
+    monitoring_templates: [KubernetesCluster]
+    dynamicview_weight: 17
+    dynamicview_views: [service_view, gcp_view]
+    dynamicview_group: Kubernetes Clusters
+    dynamicview_relations:
+      impacted_by: [nodePools]
+      impacts: [k8sCluster]
+
+    properties:
+      gke_name:
+        label: Name
+        grid_display: false
+
+      clusterIpv4Cidr:
+        label: Cluster Ipv4 CIDR
+        grid_display: false
+
+      nodeIpv4CidrSize:
+        label: Node Ipv4 CIDR Size
+        grid_display: false
+        type: int
+
+      servicesIpv4Cidr:
+        label: Services Ipv4 CIDR
+        grid_display: false
+
+      currentMasterVersion:
+        label: Current Master Version
+        grid_display: false
+
+      initialClusterVersion:
+        label: Initial Cluster Version
+        grid_display: false
+
+      loggingService:
+        label: Logging service
+        grid_display: false
+
+      monitoringService:
+        label: Monitoring service
+        grid_display: false
+
+      endpoint:
+        label: Endpoint
+        index_type: field
+        index_scope: global
+
+      network:
+        label: Network
+        grid_display: false
+
+      subnetwork:
+        label: Subnetwork
+        grid_display: false
+
+      currentNodeCount:
+        label: Current Node Count
+        type: int
+        grid_display: false
+
+      gke_creationTimestamp:
+        label: Creation Timestamp
+        grid_display: false
+
+      selfLink:
+        label: Self Link
+        grid_display: false
+
+      k8sCluster:
+        label: Kubernetes ZenPack Cluster
+        type: entity
+        grid_display: false
+        api_only: true
+        api_backendtype: method
+
+      labels:
+        label: Labels
+        type: lines
+        grid_display: false
+        renderer: Zenoss.render.label_entityLink
+
+      status:
+        label: Status
+        label_width: 35
+        content_width: 80
+        datapoint: status_status
+        datapoint_default: -2
+        # https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.zones.clusters#Status
+        enum:
+          -2: PENDING
+          -1: MISSING
+          0: UNKNOWN
+          1: STATUS_UNSPECIFIED
+          2: PROVISIONING
+          3: RUNNING
+          4: RECONCILING
+          5: STOPPING
+          6: ERROR
+          7: DEGRADED
+
+  KubernetesNodePool:
+    # Honorary kind: "kubernetes#nodePool"
+    base: [BaseComponent]
+    label: Node Pool
+    label_width: 100
+    meta_type: GoogleCloudPlatformKubernetesNodePool
+    monitoring_templates: [KubernetesNodePool]
+
+    dynamicview_views: [service_view, gcp_view]
+    dynamicview_group: Kubernetes Node Pools
+    dynamicview_weight: 18
+    dynamicview_relations:
+      impacts: [kCluster]
+      impacted_by: [instanceGroups]
+      gcp_link: [kCluster]
+
+    properties:
+      gke_name:
+        label: Name
+        grid_display: false
+
+      version:
+        label: Version
+        grid_display: false
+
+      initialNodeCount:
+        label: Initial Node Count
+        type: int
+        grid_display: false
+
+      nodeDiskSize:
+        label: Node Disk Size
+        type: int
+        renderer: Zenoss.render.bytesString
+
+      nodeImageType:
+        label: Node Image Type
+        grid_display: false
+
+      nodeServiceAccount:
+        label: Node Service Account
+        grid_display: false
+
+      nodeMachineType:
+        label: Node Machine Type
+        label_width: 100
+
+      selfLink:
+        label: Self Link
+        grid_display: false
+
+      status:
+        label: Status
+        label_width: 35
+        content_width: 80
+        datapoint: status_status
+        datapoint_default: -2
+        # https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.zones.clusters.nodePools#NodePool.Status
+        enum:
+          -2: PENDING
+          -1: MISSING
+          0: UNKNOWN
+          1: STATUS_UNSPECIFIED
+          2: PROVISIONING
+          3: RUNNING
+          4: RUNNING_WITH_ERROR
+          5: RECONCILING
+          6: STOPPING
+          7: ERROR
+
+  CloudFunction:
+    # Honorary kind: "cloud#function"
+    base: [BaseComponent]
+    label: Cloud Function
+    label_width: 100
+    meta_type: GoogleCloudPlatformCloudFunction
+    monitoring_templates: [CloudFunction]
+    dynamicview_weight: 17
+    dynamicview_views: [service_view]
+    dynamicview_group: Cloud Functions
+    dynamicview_relations:
+      impacted_by: [region]
+
+    properties:
+      function_name:
+        label: Full Name
+        grid_display: false
+
+      location:
+        # Support for CloudView: Just use the region relationship here
+        label: Location
+        label_width: 75
+        type: entity
+        grid_display: false
+        details_display: false
+        api_only: true
+        api_backendtype: method
+
+      service:
+        label: Function Service
+        label_width: 100
+
+      runtime:
+        label: Runtime
+        label_width: 75
+
+      status:
+        label: Status
+        label_width: 75
+
+      availableMemory:
+        label: Available Memory
+        label_width: 100
+        renderer: Zenoss.render.bytesString
+
+      serviceAccountEmail:
+        label: Account Email
+        label_width: 75
+        grid_display: false
+
+      labels:
+        label: Labels
+        type: lines
+        grid_display: false
+        renderer: Zenoss.render.label_entityLink
+
+  Dataflow:
+    base: [BaseComponent]
+    label: Dataflow
+    label_width: 50
+    meta_type: GoogleCloudPlatformDataflow
+    monitoring_templates: [Dataflow]
+    dynamicview_weight: 17
+    dynamicview_views: [service_view]
+    dynamicview_group: GCP Dataflows
+    dynamicview_relations:
+      impacted_by: [project]
+
+    properties:
+      DEFAULTS:
+        grid_display: true
+      title:
+        label: Name
+        grid_display: false
+      job_type:
+        label: Type
+        label_width: 120
+        type: string
+      currentStateTime:
+        label: Current State Time
+        type: string
+        grid_display: false
+      createTime:
+        label: Create Time
+        type: string
+        grid_display: false
+      startTime:
+        label: Start Time
+        type: string
+        grid_display: false
+      version:
+        label: SDK Version
+        type: string
+        grid_display: false
+      versionDisplayName:
+        label: SDK Version Display Name
+        type: string
+        grid_display: false
+      sdkSupportStatus:
+        label: SDK Support Status
+        type: string
+        grid_display: false
+
+    relationships:
+      project:
+        grid_display: false
+
+  LabelFilter:
+    label: Label Filter
+    properties:
+      expression:
+        label: Label Expression
+        display: true
+      link_with_group:
+        label: Component Group
+        type: boolean
+        display: true
+
+  StorageBucket:
+    base: [BaseComponent]
+    label: Bucket
+    label_width: 100
+    meta_type: GoogleCloudPlatformStorageBucket
+    monitoring_templates: [StorageBucket]
+    dynamicview_weight: 17
+    dynamicview_views: [service_view]
+    dynamicview_group: GCP Buckets
+    dynamicview_relations:
+      impacted_by: [project]
+
+    properties:
+      storageClass:
+        type: string
+        label: Storage Class
+        label_width: 120
+      timeCreated:
+        type: string
+        label: Time Created
+        label_width: 120
+      updated:
+        type: string
+        label: Updated
+      locationType:
+        type: string
+        label: Location Type
+      location:
+        type: string
+        label: Location
+      labels:
+        label: Labels
+        type: lines
+        grid_display: false
+        renderer: Zenoss.render.label_entityLink
+
+    relationships:
+      project:
+        grid_display: false
+
+
+  BigTableInstance:
+    base: [BaseComponent]
+    label: BigTable Instance
+    label_width: 100
+    meta_type: GoogleCloudPlatformBigTableInstance
+    monitoring_templates: [BigTableInstance]
+    dynamicview_weight: 17
+    dynamicview_views: [service_view]
+    dynamicview_group: GCP BigTable Instances
+    dynamicview_relations:
+      impacted_by: [project, bigTableClusters]
+      impacts: [bigTableAppProfiles, bigTableTables]
+
+    properties:
+      fullname:
+        type: string
+        label: Full Name
+        grid_display: false
+      displayName:
+        type: string
+        label: Display Name
+      instanceType:
+        type: string
+        label: Type
+      labels:
+        label: Labels
+        type: lines
+        grid_display: false
+        renderer: Zenoss.render.label_entityLink
+      btiStatus:
+        label: Status
+        label_width: 35
+        content_width: 80
+        datapoint: btiStatus_btiStatus
+        datapoint_default: -2
+        enum:
+          -2: PENDING
+          -1: MISSING
+          0: STATE_NOT_KNOWN
+          1: READY
+          2: CREATING
+
+    relationships:
+      bigTableClusters: {}
+      bigTableAppProfiles: {}
+      project: {}
+
+  BigTableCluster:
+    base: [BaseComponent]
+    label: BigTable Cluster
+    label_width: 100
+    meta_type: GoogleCloudPlatformBigTableCluster
+    monitoring_templates: [BigTableCluster]
+    dynamicview_weight: 17
+    dynamicview_views: [service_view]
+    dynamicview_group: GCP BigTable Cluster
+    dynamicview_relations:
+      impacted_by: [zone]
+      impacts: [bigTableInstance]
+
+    properties:
+      fullname:
+        type: string
+        label: Full Name
+        grid_display: false
+      defaultStorageType:
+        label_width: 120
+        type: string
+        label: Default Storage Type
+      serveNodes:
+        type: string
+        label: Server Nodes
+      btcStatus:
+        label: Status
+        label_width: 35
+        content_width: 80
+        datapoint: btcStatus_btcStatus
+        datapoint_default: -2
+        enum:
+          -2: PENDING
+          -1: MISSING
+          0: STATE_NOT_KNOWN
+          1: READY
+          2: CREATING
+          3: RESIZING
+          4: DISABLED
+
+    relationships:
+      bigTableInstance: {}
+      zone: {}
+      bigTableAppProfiles: {}
+
+  BigTableAppProfile:
+    base: [BaseComponent]
+    label: BigTable AppProfile
+    label_width: 100
+    meta_type: GoogleCloudPlatformBigTableAppProfile
+    dynamicview_weight: 17
+    dynamicview_views: [service_view]
+    dynamicview_group: GCP BigTable AppProfile
+    dynamicview_relations:
+      impacted_by: [bigTableInstance]
+
+    properties:
+      fullname:
+        type: string
+        label: Full Name
+        grid_display: false
+      allowTransactionalWrites:
+        type: boolean
+        label: Transactional Writes
+        label_width: 120
+      clusterRouting:
+        type: string
+        label: Cluster Routing
+
+    relationships:
+      bigTableInstance: {}
+      bigTableCluster: {}
+
+  BigTableTable:
+    base: [BaseComponent]
+    label: BigTable Table
+    label_width: 100
+    meta_type: GoogleCloudPlatformBigTableTable
+    monitoring_templates: [BigTableTable]
+    dynamicview_weight: 17
+    dynamicview_views: [service_view]
+    dynamicview_group: GCP BigTable BigTable
+    dynamicview_relations:
+      impacted_by: [bigTableInstance]
+
+    properties:
+      fullname:
+        type: string
+        label: Full Name
+        grid_display: false
+
+    relationships:
+      bigTableInstance: {}
+##############################################################################
+
+device_classes:
+  /GoogleCloudPlatform:
+    remove: true
+
+    zProperties:
+      zCollectorClientTimeout: 3600
+      zCollectorPlugins:
+        - GoogleCloudPlatform.Project
+
+      zCredentialsZProperties:
+        - zGoogleCloudPlatformProjectId
+        - zGoogleCloudPlatformClientEmail
+        - zGoogleCloudPlatformPrivateKey
+        - zGoogleCloudPlatformGuestUseExternalIP
+
+      zDeviceTemplates:
+        - ProjectDevice
+        - EstimatedCharges
+
+      zIcon: /++resource++ZenPacks.zenoss.GoogleCloudPlatform/icon/ProjectDevice.png
+      zPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice
+
+    templates:
+      ProjectDevice:
+        description: Monitoring for Google Cloud Platform Project
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice
+        datasources:
+          activityLog:
+            type: Google Cloud Platform Activity Log Monitoring
+            eventClass: /GoogleCloudPlatform
+
+          BigQueryScannedBytesBilled:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              BigQueryScannedBytesBilled: GAUGE
+            cycletime: 21720
+            metric_type: bigquery.googleapis.com/query/scanned_bytes_billed
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            service: bigquery.googleapis.com
+
+          BigQueryStatementScannedBytesBilled:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              BigQueryStatementScannedBytesBilled: GAUGE
+            cycletime: 21720
+            metric_type: bigquery.googleapis.com/query/statement_scanned_bytes_billed
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            service: bigquery.googleapis.com
+
+          BigQueryExecutionTime:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              BigQueryExecutionTime: GAUGE
+            cycletime: 420
+            metric_type: bigquery.googleapis.com/query/execution_times
+            perSeriesAligner: ALIGN_NEXT_OLDER
+            crossSeriesReducer: REDUCE_PERCENTILE_99
+            aggregator: SUM_OR_ZERO
+            labels: "project_id:${here/gce_name}"
+            service: bigquery.googleapis.com
+
+          BigQueryScannedBytes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              BigQueryScannedBytes: GAUGE
+            cycletime: 21720
+            metric_type: bigquery.googleapis.com/query/scanned_bytes
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            labels: "project_id:${here/gce_name}"
+            service: bigquery.googleapis.com
+
+          BigQueryStatementScannedBytes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              BigQueryStatementScannedBytes: GAUGE
+            cycletime: 21720
+            metric_type: bigquery.googleapis.com/query/statement_scanned_bytes
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            labels: "project_id:${here/gce_name}"
+            service: bigquery.googleapis.com
+
+          BigQuerySlotsAvailable:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              BigQuerySlotsAvailable: GAUGE
+            cycletime: 360
+            metric_type: bigquery.googleapis.com/slots/total_available
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            labels: "project_id:${here/gce_name}"
+            service: bigquery.googleapis.com
+
+          BigQuerySlotsAllocated:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              BigQuerySlotsAllocated: GAUGE
+            cycletime: 420
+            metric_type: bigquery.googleapis.com/slots/allocated
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            labels: "project_id:${here/gce_name}"
+            service: bigquery.googleapis.com
+
+          AuditLogging:
+            type: GoogleCloudPlatform AuditLogging
+
+        graphs:
+          BigQuery Execution Time:
+            units: Seconds
+            miny: 0.0
+            graphpoints:
+              BigQueryExecutionTime:
+                dpName: BigQueryExecutionTime_BigQueryExecutionTime
+          BigQuery Scanned Bytes Billed:
+            units: Bytes / Minute
+            miny: 0.0
+            graphpoints:
+              BigQueryScannedBytesBilled:
+                dpName: BigQueryScannedBytesBilled_BigQueryScannedBytesBilled
+          BigQuery Slots Allocated:
+            units: Slots
+            miny: 0.0
+            graphpoints:
+              BigQuerySlotsAllocated:
+                dpName: BigQuerySlotsAllocated_BigQuerySlotsAllocated
+          BiqQuery Scanned Bytes:
+            units: Bytes / Minute
+            miny: 0.0
+            graphpoints:
+              BigQueryScannedBytes:
+                dpName: BigQueryScannedBytes_BigQueryScannedBytes
+          BigQuery Slots Available:
+            units: Slots
+            miny: 0.0
+            graphpoints:
+              BigQuerySlotsAvailable:
+                dpName: BigQuerySlotsAvailable_BigQuerySlotsAvailable
+
+      EstimatedCharges:
+        description: Monitoring for Google Cloud Platform Project Billing
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice
+        datasources:
+          ComputeCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Compute Engine
+            datapoints:
+              ComputeCharges: GAUGE_MIN_0
+          BigQueryCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: BigQuery
+            datapoints:
+              BigQueryCharges: GAUGE_MIN_0
+          CloudFunctionsCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Functions
+            datapoints:
+              CloudFunctionsCharges: GAUGE_MIN_0
+          CloudStorageCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Storage
+            datapoints:
+              CloudStorageCharges: GAUGE_MIN_0
+          StackdriverLoggingCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Stackdriver Logging
+            datapoints:
+              StackdriverLoggingCharges: GAUGE_MIN_0
+          StackdriverMonitoringCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Stackdriver Monitoring
+            datapoints:
+              StackdriverMonitoringCharges: GAUGE_MIN_0
+          CloudComposerCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Composer
+            datapoints:
+              CloudComposerCharges: GAUGE_MIN_0
+          CloudBigtableCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Bigtable
+            datapoints:
+              CloudBigtableCharges: GAUGE_MIN_0
+          CloudPubSubCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Pub/Sub
+            datapoints:
+              CloudPubSubCharges: GAUGE_MIN_0
+          AppEngineCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: App Engine
+            datapoints:
+              AppEngineCharges: GAUGE_MIN_0
+          CloudDataflowCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Dataflow
+            datapoints:
+              CloudDataflowCharges: GAUGE_MIN_0
+          CloudSQLCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud SQL
+            datapoints:
+              CloudSQLCharges: GAUGE_MIN_0
+          CloudDataflowCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Dataflow
+            datapoints:
+              CloudDataflowCharges: GAUGE_MIN_0
+          USCentral1Charges:
+            type: Google Cloud Platform Billing Monitoring
+            region: us-central1
+            eventClass: /Status
+            datapoints:
+              USCentral1Charges: GAUGE_MIN_0
+          USEast4Charges:
+            type: Google Cloud Platform Billing Monitoring
+            region: us-east4
+            eventClass: /Status
+            datapoints:
+              USEast4Charges: GAUGE_MIN_0
+          USEast1Charges:
+            type: Google Cloud Platform Billing Monitoring
+            region: us-east1
+            eventClass: /Status
+            datapoints:
+              USEast1Charges: GAUGE_MIN_0
+          USwest1Charges:
+            type: Google Cloud Platform Billing Monitoring
+            region: us-west1
+            eventClass: /Status
+            datapoints:
+              USwest1Charges: GAUGE_MIN_0
+          USwest2Charges:
+            eventClass: /Status
+            type: Google Cloud Platform Billing Monitoring
+            region: us-west2
+            eventClass: /Status
+            datapoints:
+              USwest2Charges: GAUGE_MIN_0
+          TotalCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Total
+            region: Total
+            datapoints:
+              TotalCharges: GAUGE_MIN_0
+        graphs:
+          Service Charges:
+            units: USD
+            miny: 0
+            graphpoints:
+              Compute Engine:
+                dpName: ComputeCharges_ComputeCharges
+              Big Query:
+                dpName: BigQueryCharges_BigQueryCharges
+              Cloud Storage:
+                dpName: CloudStorageCharges_CloudStorageCharges
+              Stackdriver Logging:
+                dpName: StackdriverLoggingCharges_StackdriverLoggingCharges
+              Stackdriver:
+                dpName: StackdriverMonitoringCharges_StackdriverMonitoringCharges
+              Cloud Composer:
+                dpName: CloudComposerCharges_CloudComposerCharges
+              Cloud Bigtable:
+                dpName: CloudBigtableCharges_CloudBigtableCharges
+              Cloud PubSub:
+                dpName: CloudPubSubCharges_CloudPubSubCharges
+              App Engine:
+                dpName: AppEngineCharges_AppEngineCharges
+              Cloud Dataflow:
+                dpName: CloudDataflowCharges_CloudDataflowCharges
+              Cloud SQL:
+                dpName: CloudSQLCharges_CloudSQLCharges
+              Cloud Functions:
+                dpName: CloudFunctionsCharges_CloudFunctionsCharges
+          Region Charges:
+            units: USD
+            miny: 0
+            graphpoints:
+              US Central1 Charges:
+                dpName: USCentral1Charges_USCentral1Charges
+              US East4 Charges:
+                dpName: USEast4Charges_USEast4Charges
+              US East1 Charges:
+                dpName: USEast1Charges_USEast1Charges
+              US West2 Charges:
+                dpName: USWest2Charges_USWest2Charges
+              US West1 Charges:
+                dpName: USWest1Charges_USWest1Charges
+          Total Charges:
+            units: USD
+            miny: 0
+            graphpoints:
+              Total:
+                dpName: TotalCharges_TotalCharges
+        thresholds:
+          "Billing Cost":
+            type: MinMaxThreshold
+            maxval: "here.zGoogleCloudPlatformBillingCostThreshold"
+            eventClass: /GoogleCloudPlatform
+            dsnames: [TotalCharges_TotalCharges]
+
+      LabelFilter:
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.LabelFilter
+        datasources:
+          ComputeLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Compute Engine
+            datapoints:
+              ComputeLabelCharges: GAUGE_MIN_0
+          BigQueryLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: BigQuery
+            datapoints:
+              BigQueryLabelCharges: GAUGE_MIN_0
+          CloudStorageLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Storage
+            datapoints:
+              CloudStorageLabelCharges: GAUGE_MIN_0
+          StackdriverLoggingLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Stackdriver Logging
+            datapoints:
+              StackdriverLoggingLabelCharges: GAUGE_MIN_0
+          StackdriverMonitoringLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Stackdriver Monitoring
+            datapoints:
+              StackdriverMonitoringLabelCharges: GAUGE_MIN_0
+          CloudComposerLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Composer
+            datapoints:
+              CloudComposerLabelCharges: GAUGE_MIN_0
+          CloudBigtableLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Bigtable
+            datapoints:
+              CloudBigtableLabelCharges: GAUGE_MIN_0
+          CloudPubSubLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Pub/Sub
+            datapoints:
+              CloudPubSubLabelCharges: GAUGE_MIN_0
+          CloudFunctionsLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Functions
+            datapoints:
+              CloudFunctionsLabelCharges: GAUGE_MIN_0
+          AppEngineLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: App Engine
+            datapoints:
+              AppEngineLabelCharges: GAUGE_MIN_0
+          CloudDataflowLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Dataflow
+            datapoints:
+              CloudDataflowLabelCharges: GAUGE_MIN_0
+          CloudSQLLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud SQL
+            datapoints:
+              CloudSQLLabelCharges: GAUGE_MIN_0
+          CloudDataflowLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Cloud Dataflow
+            datapoints:
+              CloudDataflowLabelCharges: GAUGE_MIN_0
+          USCentral1LabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            region: us-central1
+            eventClass: /Status
+            datapoints:
+              USCentral1LabelCharges: GAUGE_MIN_0
+          USEast4LabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            region: us-east4
+            eventClass: /Status
+            datapoints:
+              USEast4LabelCharges: GAUGE_MIN_0
+          USEast1LabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            region: us-east1
+            eventClass: /Status
+            datapoints:
+              USEast1LabelCharges: GAUGE_MIN_0
+          USwest1LabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            region: us-west1
+            eventClass: /Status
+            datapoints:
+              USwest1LabelCharges: GAUGE_MIN_0
+          USwest2LabelCharges:
+            eventClass: /Status
+            type: Google Cloud Platform Billing Monitoring
+            region: us-west2
+            eventClass: /Status
+            datapoints:
+              USwest2LabelCharges: GAUGE_MIN_0
+          TotalLabelCharges:
+            type: Google Cloud Platform Billing Monitoring
+            eventClass: /Status
+            service: Total
+            region: Total
+            datapoints:
+              TotalLabelCharges: GAUGE_MIN_0
+        graphs:
+          Service Label Charges:
+            units: USD
+            miny: 0
+            graphpoints:
+              Compute Engine:
+                dpName: ComputeLabelCharges_ComputeLabelCharges
+              Big Query:
+                dpName: BigQueryLabelCharges_BigQueryLabelCharges
+              Cloud Storage:
+                dpName: CloudStorageLabelCharges_CloudStorageLabelCharges
+              Stackdriver Logging:
+                dpName: StackdriverLoggingLabelCharges_StackdriverLoggingLabelCharges
+              Stackdriver:
+                dpName: StackdriverMonitoringLabelCharges_StackdriverMonitoringLabelCharges
+              Cloud Composer:
+                dpName: CloudComposerLabelCharges_CloudComposerLabelCharges
+              Cloud Bigtable:
+                dpName: CloudBigtableLabelCharges_CloudBigtableLabelCharges
+              Cloud PubSub:
+                dpName: CloudPubSubLabelCharges_CloudPubSubLabelCharges
+              App Engine:
+                dpName: AppEngineLabelCharges_AppEngineLabelCharges
+              Cloud Dataflow:
+                dpName: CloudDataflowLabelCharges_CloudDataflowLabelCharges
+              Cloud SQL:
+                dpName: CloudSQLLabelCharges_CloudSQLLabelCharges
+              Cloud Functions:
+                dpName: CloudFunctionsLabelCharges_CloudFunctionsLabelCharges
+          Region Label Charges:
+            units: USD
+            miny: 0
+            graphpoints:
+              US Central1:
+                dpName: USCentral1LabelCharges_USCentral1LabelCharges
+              US East4:
+                dpName: USEast4LabelCharges_USEast4LabelCharges
+              US East1:
+                dpName: USEast1LabelCharges_USEast1LabelCharges
+              US West2:
+                dpName: USWest2LabelCharges_USWest2LabelCharges
+              US West1:
+                dpName: USWest1LabelCharges_USWest1LabelCharges
+          Total Label Charges:
+            units: USD
+            miny: 0
+            graphpoints:
+              Total:
+                dpName: TotalLabelCharges_TotalLabelCharges
+
+      ComputeRegion:
+        description: Monitoring for Google Cloud Platform Regions
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ComputeRegion
+
+        datasources:
+          status:
+            type: Google Cloud Platform Status
+            eventClass: /Unknown
+            eventClassKey: gcp-status-region
+            eventKey: gcp-status-region
+            severity: Critical
+            statusField: status
+            eventValues: |-
+              MISSING
+              DOWN
+            datapoints:
+              status: GAUGE
+
+      ComputeImage:
+        description: Monitoring for Google Cloud Platform Images
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ComputeImage
+
+        datasources:
+          status:
+            type: Google Cloud Platform Status
+            eventClass: /Unknown
+            eventClassKey: gcp-status-image
+            eventKey: gcp-status-image
+            severity: Critical
+            statusField: status
+            eventValues: FAILED
+            datapoints:
+              status: GAUGE
+
+      ComputeSnapshot:
+        description: Monitoring for Google Cloud Platform Snapshots
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ComputeSnapshot
+
+        datasources:
+          status:
+            type: Google Cloud Platform Status
+            eventClass: /Unknown
+            eventClassKey: gcp-status-snapshot
+            eventKey: gcp-status-snapshot
+            severity: Critical
+            statusField: status
+            eventValues: FAILED
+            datapoints:
+              status: GAUGE
+
+          storageStatus:
+            type: Google Cloud Platform Status
+            eventClass: /Unknown
+            eventClassKey: gcp-status-snapshot-storage
+            eventKey: gcp-status-snapshot-storage
+            severity: Critical
+            statusField: storageBytesStatus
+            datapoints:
+              storageStatus: GAUGE
+
+      ComputeZone:
+        description: Monitoring for Google Cloud Platform Zones
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ComputeZone
+
+        datasources:
+          status:
+            type: Google Cloud Platform Status
+            eventClass: /Unknown
+            eventClassKey: gcp-status-zone
+            eventKey: gcp-status-zone
+            severity: Critical
+            statusField: status
+            eventValues: |-
+              MISSING
+              DOWN
+            datapoints:
+              status: GAUGE
+
+      # ComputeQuota templates are in quotas.yaml.
+
+      ComputeInstance:
+        description: Monitoring for Google Cloud Platform Compute Instances
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ComputeInstance
+
+        datasources:
+          status:
+            type: Google Cloud Platform Status
+            eventClass: /Unknown
+            eventClassKey: gcp-status-instance
+            eventKey: gcp-status-instance
+            severity: Critical
+            statusField: status
+            datapoints:
+              status: GAUGE
+
+          firewallDroppedBytes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/firewall/dropped_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              firewallDroppedBytes: GAUGE_MIN_0
+
+          firewallDroppedPackets:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/firewall/dropped_packets_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              firewallDroppedPackets: GAUGE_MIN_0
+
+          cpuUtilization:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/cpu/utilization
+            perSeriesAligner: ALIGN_MEAN
+            aggregator: PERCENT_SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              cpuUtilization: GAUGE_MIN_0
+
+          diskReadBytes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/read_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              diskReadBytes: GAUGE_MIN_0
+
+          diskReadOps:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/read_ops_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              diskReadOps: GAUGE_MIN_0
+
+          diskThrottledReadBytes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/throttled_read_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              diskThrottledReadBytes: GAUGE_MIN_0
+
+          diskThrottledReadOps:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/throttled_read_ops_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              diskThrottledReadOps: GAUGE_MIN_0
+
+          diskThrottledWriteBytes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/throttled_write_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              diskThrottledWriteBytes: GAUGE_MIN_0
+
+          diskThrottledWriteOps:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/throttled_write_ops_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              diskThrottledWriteOps: GAUGE_MIN_0
+
+          diskWriteBytes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/write_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              diskWriteBytes: GAUGE_MIN_0
+
+          diskWriteOps:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/write_ops_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              diskWriteOps: GAUGE_MIN_0
+
+          networkReceivedBytes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/network/received_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              networkReceivedBytes: GAUGE_MIN_0
+
+          networkReceivedPackets:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/network/received_packets_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              networkReceivedPackets: GAUGE_MIN_0
+
+          networkSentBytes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/network/sent_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              networkSentBytes: GAUGE_MIN_0
+
+          networkSentPackets:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/network/sent_packets_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM
+            labels: "instance_name: ${here/gce_name}"
+            datapoints:
+              networkSentPackets: GAUGE_MIN_0
+
+        graphs:
+          CPU Utilization:
+            units: percent
+            miny: 0
+
+            graphpoints:
+              Average:
+                dpName: cpuUtilization_cpuUtilization
+                format: "%7.2lf%%"
+
+          Total Disk Throughput:
+            units: bytes/sec
+            miny: 0
+
+            graphpoints:
+              Read:
+                dpName: diskReadBytes_diskReadBytes
+                format: "%7.2lf%s"
+
+              Write:
+                dpName: diskWriteBytes_diskWriteBytes
+                format: "%7.2lf%s"
+
+          Throttled Disk Throughput:
+            units: bytes/sec
+            miny: 0
+
+            graphpoints:
+              Read:
+                dpName: diskThrottledReadBytes_diskThrottledReadBytes
+                format: "%7.2lf%s"
+
+              Write:
+                dpName: diskThrottledWriteBytes_diskThrottledWriteBytes
+                format: "%7.2lf%s"
+
+          Total Disk Operation Rate:
+            units: operations/sec
+            miny: 0
+
+            graphpoints:
+              Read:
+                dpName: diskReadOps_diskReadOps
+                format: "%7.2lf%s"
+
+              Write:
+                dpName: diskWriteOps_diskWriteOps
+                format: "%7.2lf%s"
+
+          Throttled Disk Operation Rate:
+            units: operations/sec
+            miny: 0
+
+            graphpoints:
+              Read:
+                dpName: diskThrottledReadOps_diskThrottledReadOps
+                format: "%7.2lf%s"
+
+              Write:
+                dpName: diskThrottledWriteOps_diskThrottledWriteOps
+                format: "%7.2lf%s"
+
+          Total Network Throughput:
+            units: bytes/sec
+            miny: 0
+
+            graphpoints:
+              Received:
+                dpName: networkReceivedBytes_networkReceivedBytes
+                format: "%7.2lf%s"
+
+              Sent:
+                dpName: networkSentBytes_networkSentBytes
+                format: "%7.2lf%s"
+
+          Total Network Packet Rate:
+            units: packets/sec
+            miny: 0
+
+            graphpoints:
+              Received:
+                dpName: networkReceivedPackets_networkReceivedPackets
+                format: "%7.2lf%s"
+
+              Sent:
+                dpName: networkSentPackets_networkSentPackets
+                format: "%7.2lf%s"
+
+          Firewall Throughput:
+            units: bytes/sec
+            miny: 0
+
+            graphpoints:
+              Dropped:
+                dpName: firewallDroppedBytes_firewallDroppedBytes
+                format: "%7.2lf%s"
+
+          Firewall Packet Rate:
+            units: packets/sec
+            miny: 0
+
+            graphpoints:
+              Dropped:
+                dpName: firewallDroppedPackets_firewallDroppedPackets
+                format: "%7.2lf%s"
+
+      KubernetesNode:
+        description: Monitoring for ComputeInstance as Kubernetes Nodes
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ComputeInstance
+
+        datasources:
+          DEFAULTS:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            perSeriesAligner: ALIGN_MEAN
+            aggregator: SUM
+            labels: "instance_id: ${here/gce_id}"
+
+          containerCpuUsageTime:
+            service: container.googleapis.com
+            metric_type: container.googleapis.com/container/cpu/usage_time
+            perSeriesAligner: ALIGN_DELTA
+            aggregator: SUM
+            datapoints:
+              containerCpuUsageTime: GAUGE_MIN_0
+
+          containerDiskCapacity:
+            service: container.googleapis.com
+            metric_type: container.googleapis.com/container/disk/bytes_total
+            aggregator: SUM
+            datapoints:
+              containerDiskCapacity: GAUGE_MIN_0
+
+          containerDiskUsed:
+            service: container.googleapis.com
+            metric_type: container.googleapis.com/container/disk/bytes_used
+            aggregator: SUM
+            datapoints:
+              containerDiskUsed: GAUGE_MIN_0
+
+          containerMemoryCapacity:
+            service: container.googleapis.com
+            metric_type: container.googleapis.com/container/memory/bytes_total
+            aggregator: SUM
+            datapoints:
+              containerMemoryCapacity: GAUGE_MIN_0
+
+          containerMemoryUsed:
+            service: container.googleapis.com
+            metric_type: container.googleapis.com/container/memory/bytes_used
+            aggregator: SUM
+            datapoints:
+              containerMemoryUsed: GAUGE_MIN_0
+            labels: |-
+              instance_id: ${here/gce_id}
+              memory_type: evictable
+
+          containerMemoryNonEvictable:
+            service: container.googleapis.com
+            metric_type: container.googleapis.com/container/memory/bytes_used
+            aggregator: SUM
+            datapoints:
+              containerMemoryNonEvictable: GAUGE_MIN_0
+            labels: |-
+              instance_id: ${here/gce_id}
+              memory_type: non-evictable
+
+          containerMemoryFaultMajor:
+            # Major memory page fault during collection period
+            service: container.googleapis.com
+            metric_type: container.googleapis.com/container/memory/page_fault_count
+            perSeriesAligner: ALIGN_DELTA
+            aggregator: SUM_OR_ZERO
+            datapoints:
+              containerMemoryFaultMajor: GAUGE_MIN_0
+            labels: |-
+              instance_id: ${here/gce_id}
+              fault_type: major
+
+          containerMemoryFaultMinor:
+            # Minor memory page fault during collection period
+            service: container.googleapis.com
+            metric_type: container.googleapis.com/container/memory/page_fault_count
+            perSeriesAligner: ALIGN_DELTA
+            aggregator: SUM_OR_ZERO
+            datapoints:
+              containerMemoryFaultMinor: GAUGE_MIN_0
+            labels: |-
+              instance_id: ${here/gce_id}
+              fault_type: minor
+
+        graphs:
+          Container CPU Usage:
+            units: seconds
+            miny: 0
+
+            graphpoints:
+              CPU Usage:
+                dpName: containerCpuUsageTime_containerCpuUsageTime
+                format: "%7.2lf%s"
+
+          Container Disk Usage:
+            units: bytes
+            miny: 0
+
+            graphpoints:
+              Total:
+                dpName: containerDiskCapacity_containerDiskCapacity
+                format: "%7.2lf%s"
+
+              Used:
+                dpName: containerDiskUsed_containerDiskUsed
+                format: "%7.2lf%s"
+
+          Container Memory:
+            units: bytes
+            miny: 0
+
+            graphpoints:
+              Total:
+                dpName: containerMemoryCapacity_containerMemoryCapacity
+                format: "%7.2lf%s"
+
+              Used:
+                dpName: containerMemoryUsed_containerMemoryUsed
+                format: "%7.2lf%s"
+
+              NonEvictable:
+                dpName: containerMemoryNonEvictable_containerMemoryNonEvictable
+                format: "%7.2lf%s"
+
+          Container Memory Faults:
+            units: bytes
+            miny: 0
+
+            graphpoints:
+              Major:
+                dpName: containerMemoryFaultMajor_containerMemoryFaultMajor
+                format: "%7.2lf%s"
+
+              Minor:
+                dpName: containerMemoryFaultMinor_containerMemoryFaultMinor
+                format: "%7.2lf%s"
+
+      ComputeDisk:
+        description: Monitoring for Google Cloud Platform Compute Disks
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ComputeDisk
+
+        datasources:
+          DEFAULTS:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            perSeriesAligner: ALIGN_MEAN
+            aggregator: SUM
+            labels: "device_name: ${here/gce_name}"
+
+          diskReadBytes:
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/read_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            datapoints:
+              diskReadBytes: GAUGE_MIN_0
+
+          diskReadOps:
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/read_ops_count
+            perSeriesAligner: ALIGN_RATE
+            datapoints:
+              diskReadOps: GAUGE_MIN_0
+
+          diskThrottledReadBytes:
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/throttled_read_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            datapoints:
+              diskThrottledReadBytes: GAUGE_MIN_0
+
+          diskThrottledReadOps:
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/throttled_read_ops_count
+            perSeriesAligner: ALIGN_RATE
+            datapoints:
+              diskThrottledReadOps: GAUGE_MIN_0
+
+          diskThrottledWriteBytes:
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/throttled_write_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            datapoints:
+              diskThrottledWriteBytes: GAUGE_MIN_0
+
+          diskThrottledWriteOps:
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/throttled_write_ops_count
+            perSeriesAligner: ALIGN_RATE
+            datapoints:
+              diskThrottledWriteOps: GAUGE_MIN_0
+
+          diskWriteBytes:
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/write_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            datapoints:
+              diskWriteBytes: GAUGE_MIN_0
+
+          diskWriteOps:
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/disk/write_ops_count
+            perSeriesAligner: ALIGN_RATE
+            datapoints:
+              diskWriteOps: GAUGE_MIN_0
+
+        graphs:
+          Disk Throughput:
+            units: bytes/sec
+            miny: 0
+
+            graphpoints:
+              Read:
+                dpName: diskReadBytes_diskReadBytes
+                format: "%7.2lf%s"
+
+              Write:
+                dpName: diskWriteBytes_diskWriteBytes
+                format: "%7.2lf%s"
+
+          Throttled Disk Throughput:
+            units: bytes/sec
+            miny: 0
+
+            graphpoints:
+              Read:
+                dpName: diskThrottledReadBytes_diskThrottledReadBytes
+                format: "%7.2lf%s"
+
+              Write:
+                dpName: diskThrottledWriteBytes_diskThrottledWriteBytes
+                format: "%7.2lf%s"
+
+          Disk Operation Rate:
+            units: operations/sec
+            miny: 0
+
+            graphpoints:
+              Read:
+                dpName: diskReadOps_diskReadOps
+                format: "%7.2lf%s"
+
+              Write:
+                dpName: diskWriteOps_diskWriteOps
+                format: "%7.2lf%s"
+
+          Throttled Disk Operation Rate:
+            units: operations/sec
+            miny: 0
+
+            graphpoints:
+              Read:
+                dpName: diskThrottledReadOps_diskThrottledReadOps
+                format: "%7.2lf%s"
+
+              Write:
+                dpName: diskThrottledWriteOps_diskThrottledWriteOps
+                format: "%7.2lf%s"
+
+      KubernetesCluster:
+        description: Monitoring for Google Cloud Platform Snapshots
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ComputeSnapshot
+
+        datasources:
+          status:
+            type: Google Cloud Platform Status
+            eventClass: /Unknown
+            eventClassKey: gcp-status-kubernetes-cluster
+            eventKey: gcp-status-kubernetes-cluster
+            severity: Error
+            statusField: status
+            eventValues: |-
+              ERROR
+              DEGRADED
+            datapoints:
+              status: GAUGE
+
+      KubernetesNodePool:
+        description: Monitoring for Google Cloud Platform Snapshots
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ComputeSnapshot
+
+        datasources:
+          status:
+            type: Google Cloud Platform Status
+            eventClass: /Unknown
+            eventClassKey: gcp-status-kubernetes-nodePool
+            eventKey: gcp-status-kubernetes-nodePool
+            severity: Error
+            statusField: status
+            eventValues: |-
+              RUNNING_WITH_ERROR
+              ERROR
+            datapoints:
+              status: GAUGE
+
+      ComputeInstanceGroup:
+        description: Monitoring for Google Cloud Platform Instance Groups
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.ComputeInstanceGroup
+
+        datasources:
+          metrics:
+            type: Google Cloud Platform Instance Group Monitoring
+            eventClass: /Status
+            datapoints:
+              totalcount: GAUGE_MIN_0
+              runningcount: GAUGE_MIN_0
+
+          cpuUtilization:
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+            severity: Error
+            service: compute.googleapis.com
+            metric_type: compute.googleapis.com/instance/cpu/utilization
+            perSeriesAligner: ALIGN_MEAN
+            aggregator: PERCENT_AVERAGE
+            labels: "instance_names: ${here/getInstances}"
+
+            datapoints:
+              cpuUtilization: GAUGE_MIN_0
+
+        thresholds:
+            InstanceCount:
+                type: MinMaxThreshold
+                minval: "here.minInstances"
+                maxval: "here.maxInstances"
+                eventClass: /Status
+                severity: Warning
+                dsnames: [metrics_totalcount]
+
+            UtilizationTarget:
+                type: MinMaxThreshold
+                maxval: "here.utilizationTarget"
+                eventClass: /Status
+                severity: Warning
+                dsnames: [cpuUtilization_cpuUtilization]
+
+        graphs:
+          Instance Count:
+            miny: 0
+            units: instances
+            graphpoints:
+              Total:
+                dpName: metrics_totalcount
+              Running:
+                dpName: metrics_runningcount
+          CPU Utilization:
+            miny: 0
+            units: percent
+            graphpoints:
+              Utilization:
+                dpName: cpuUtilization_cpuUtilization
+                format: "%7.2lf%%"
+
+      CloudFunction:
+        description: Monitoring for Google Cloud Functions
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.CloudFunction
+
+        datasources:
+          DEFAULTS:
+            eventClass: /Status
+            severity: Error
+
+          status:
+            type: Google Cloud Platform Status
+            eventClass: /Unknown
+            eventClassKey: gcp-status-function
+            eventKey: gcp-status-function
+            severity: Error
+            statusField: status
+            eventValues: |-
+              CLOUD_FUNCTION_STATUS_UNSPECIFIED
+              OFFLINE
+              DEPLOY_IN_PROGRESS
+              DELETE_IN_PROGRESS
+              UNKNOWN
+
+            datapoints:
+              status: GAUGE
+
+          executionCount:
+            type: Google Cloud Platform Stackdriver Monitoring
+            labels: "function_name: ${here/title}"
+            aggregator: SUM_OR_ZERO
+            service: cloudfunctions.googleapis.com
+            metric_type: cloudfunctions.googleapis.com/function/execution_count
+            perSeriesAligner: ALIGN_DELTA
+            datapoints:
+              executionCount: GAUGE_MIN_0
+
+          executionCountOk:
+            type: Google Cloud Platform Stackdriver Monitoring
+            labels: "function_name: ${here/title}"
+            aggregator: SUM_OR_ZERO
+            service: cloudfunctions.googleapis.com
+            metric_type: cloudfunctions.googleapis.com/function/execution_count
+            filter_: metric.label."status"="ok"
+            perSeriesAligner: ALIGN_DELTA
+            datapoints:
+              executionCountOk: GAUGE_MIN_0
+
+          executionCountTimeout:
+            type: Google Cloud Platform Stackdriver Monitoring
+            labels: "function_name: ${here/title}"
+            aggregator: SUM_OR_ZERO
+            service: cloudfunctions.googleapis.com
+            metric_type: cloudfunctions.googleapis.com/function/execution_count
+            filter_: metric.label."status"="timeout"
+            perSeriesAligner: ALIGN_DELTA
+            datapoints:
+              executionCountTimeout: GAUGE_MIN_0
+
+          executionCountError:
+            type: Google Cloud Platform Stackdriver Monitoring
+            labels: "function_name: ${here/title}"
+            aggregator: SUM_OR_ZERO
+            service: cloudfunctions.googleapis.com
+            metric_type: cloudfunctions.googleapis.com/function/execution_count
+            filter_: metric.label."status"="error"
+            perSeriesAligner: ALIGN_DELTA
+            datapoints:
+              executionCountError: GAUGE_MIN_0
+
+          executionCountCrash:
+            type: Google Cloud Platform Stackdriver Monitoring
+            labels: "function_name: ${here/title}"
+            aggregator: SUM_OR_ZERO
+            service: cloudfunctions.googleapis.com
+            metric_type: cloudfunctions.googleapis.com/function/execution_count
+            filter_: metric.label."status"="crash"
+            perSeriesAligner: ALIGN_DELTA
+            datapoints:
+              executionCountCrash: GAUGE_MIN_0
+
+          executionTimes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            labels: "function_name: ${here/title}"
+            aggregator: SUM_OR_ZERO
+            # Times measured in 10^-9 (nano) seconds. See graph rpn.
+            service: cloudfunctions.googleapis.com
+            metric_type: cloudfunctions.googleapis.com/function/execution_times
+            perSeriesAligner: ALIGN_PERCENTILE_99
+            datapoints:
+              executionTimes: GAUGE_MIN_0
+
+          activeInstances:
+            type: Google Cloud Platform Stackdriver Monitoring
+            labels: "function_name: ${here/title}"
+            aggregator: SUM_OR_ZERO
+            service: cloudfunctions.googleapis.com
+            metric_type: cloudfunctions.googleapis.com/function/active_instances
+            perSeriesAligner: ALIGN_NONE
+            datapoints:
+              activeInstances: GAUGE_MIN_0
+
+          memoryUse:
+            type: Google Cloud Platform Stackdriver Monitoring
+            labels: "function_name: ${here/title}"
+            aggregator: SUM_OR_ZERO
+            service: cloudfunctions.googleapis.com
+            metric_type: cloudfunctions.googleapis.com/function/user_memory_bytes
+            perSeriesAligner: ALIGN_PERCENTILE_99
+            datapoints:
+              memoryUse: GAUGE_MIN_0
+
+          networkEgress:
+            type: Google Cloud Platform Stackdriver Monitoring
+            labels: "function_name: ${here/title}"
+            aggregator: SUM_OR_ZERO
+            service: cloudfunctions.googleapis.com
+            metric_type: cloudfunctions.googleapis.com/function/network_egress
+            perSeriesAligner: ALIGN_DELTA
+            datapoints:
+              networkEgress: GAUGE_MIN_0
+
+        graphs:
+          Invocations:
+            miny: 0
+            units: invocations
+            graphpoints:
+              Crash:
+                dpName: executionCountCrash_executionCountCrash
+                lineType: AREA
+              Total:
+                dpName: executionCount_executionCount
+                lineType: AREA
+              OK:
+                dpName: executionCountOk_executionCountOk
+                lineType: AREA
+              Timeout:
+                dpName: executionCountTimeout_executionCountTimeout
+                lineType: AREA
+              Error:
+                dpName: executionCountError_executionCountError
+                lineType: AREA
+
+          Execution Times:
+            miny: 0
+            units: seconds
+            graphpoints:
+              Time:
+                dpName: executionTimes_executionTimes
+                lineType: AREA
+                rpn: "1000000000,/"
+
+          Active Instances:
+            miny: 0
+            units: instances
+            graphpoints:
+              Total:
+                dpName: activeInstances_activeInstances
+                lineType: AREA
+
+          Memory Use:
+            miny: 0
+            units: bytes
+            graphpoints:
+              Used:
+                dpName: memoryUse_memoryUse
+                lineType: AREA
+
+          Network Egress:
+            miny: 0
+            units: bytes
+            graphpoints:
+              Used:
+                dpName: networkEgress_networkEgress
+                lineType: AREA
+
+      Dataflow:
+        description: Monitoring for Google Cloud Dataflow
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.Dataflow
+
+        datasources:
+          DEFAULTS:
+            cycletime: ${here/zGoogleCloudPlatformStackDriverMonitoringInterval}
+            labels: "job_name: ${here/title}"
+            type: Google Cloud Platform Stackdriver Monitoring
+            aggregator: SUM_OR_ZERO
+            eventClass: /Status
+
+          elapsedTime:
+            service: dataflow.googleapis.com
+            metric_type: dataflow.googleapis.com/job/elapsed_time
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_SUM
+            datapoints:
+              elapsedTime:
+                rrdtype: GAUGE
+                description: >
+                  Duration that the current run of this pipeline has been in the
+                  Running state so far.
+
+          elementCount:
+            service: dataflow.googleapis.com
+            metric_type: dataflow.googleapis.com/job/element_count
+            perSeriesAligner: ALIGN_SUM
+            datapoints:
+              elementCount:
+                rrdtype: GAUGE
+                description: Number of elements added to the pcollection so far.
+
+          estimatedByteCount:
+            service: dataflow.googleapis.com
+            metric_type: dataflow.googleapis.com/job/estimated_byte_count
+            perSeriesAligner: ALIGN_COUNT
+            crossSeriesReducer: REDUCE_COUNT
+            datapoints:
+              estimatedByteCount:
+                rrdtype: GAUGE
+                description: >
+                  An estimated number of bytes added to the pcollection
+                  so far. Dataflow calculates the average encoded size of elements
+                  in a pcollection and mutiplies it by the number of elements.
+
+          memoryUsageTime:
+            # Use ALIGN_COUNT to get useage gauge for cycletime period.
+            service: dataflow.googleapis.com
+            metric_type: dataflow.googleapis.com/job/total_memory_usage_time
+            perSeriesAligner: ALIGN_COUNT
+            crossSeriesReducer: REDUCE_NONE
+            datapoints:
+              memoryUsageTime:
+                rrdtype: GAUGE
+                description: Total GB seconds of memory allocated to this Dataflow job.
+
+          diskUsageTime:
+            # Add both SSD and HDD via crossSeriesReducer REDUCE_SUM
+            # Use filtering on 'storage_type' to separate these out.
+            service: dataflow.googleapis.com
+            metric_type: dataflow.googleapis.com/job/total_pd_usage_time
+            perSeriesAligner: ALIGN_COUNT
+            crossSeriesReducer: REDUCE_NONE
+            datapoints:
+              diskUsageTime:
+                rrdtype: GAUGE
+                description: >
+                  Total GB seconds for all persistent disk used by all workers
+                  associated with this Dataflow job.
+
+          vcpuTime:
+            # We use ALIGN_COUNT to get gauge use during cycletime instead of total
+            service: dataflow.googleapis.com
+            metric_type: dataflow.googleapis.com/job/total_vcpu_time
+            perSeriesAligner: ALIGN_COUNT
+            crossSeriesReducer: REDUCE_NONE
+            datapoints:
+              vcpuTime:
+                rrdtype: GAUGE
+                description: Total vCPU seconds used by this Dataflow job.
+
+          totalShuffleDataProcessed:
+            service: dataflow.googleapis.com
+            metric_type: dataflow.googleapis.com/job/total_shuffle_data_processed
+            perSeriesAligner: ALIGN_MEAN
+            datapoints:
+              totalShuffleDataProcessed:
+                rrdtype: GAUGE
+                description: Total bytes of shuffle data processed by this Dataflow job.
+
+          systemLag:
+            service: dataflow.googleapis.com
+            metric_type: dataflow.googleapis.com/job/system_lag
+            perSeriesAligner: ALIGN_MEAN
+            datapoints:
+              systemLag:
+                rrdtype: GAUGE
+                description: >
+                  The current maximum duration that an item of data has been
+                  awaiting processing, in seconds.
+
+          vcpus:
+            aggregator: FIRST
+            service: dataflow.googleapis.com
+            metric_type: dataflow.googleapis.com/job/current_num_vcpus
+            perSeriesAligner: ALIGN_MEAN
+            datapoints:
+              elapsedTime: GAUGE
+              vcpus:
+                rrdtype: GAUGE
+                description: Current number of vCPUs in use.
+
+          totalStreamingDataProcessed:
+            service: dataflow.googleapis.com
+            metric_type: dataflow.googleapis.com/job/total_streaming_data_processed
+            perSeriesAligner: ALIGN_MEAN
+            datapoints:
+              totalStreamingDataProcessed:
+                rrdtype: GAUGE
+                description: >
+                  Total bytes of streaming data processed by this Dataflow job.
+
+        graphs:
+          Memory Usage:
+            units: Byte-Seconds
+            miny: 0.0
+            graphpoints:
+              Memory Usage Time:
+                dpName: memoryUsageTime_memoryUsageTime
+                rpn: 1073741824,*
+
+          Disk Usage:
+            units: Byte-Seconds
+            miny: 0.0
+            graphpoints:
+              Disk Usage Time:
+                dpName: diskUsageTime_diskUsageTime
+                rpn: 1073741824,*
+
+          CPU Usage:
+            units: Seconds
+            miny: 0.0
+            graphpoints:
+              VCPU Time:
+                dpName: vcpuTime_vcpuTime
+
+          Elements:
+            units: Count
+            miny: 0.0
+            graphpoints:
+              Element Count:
+                dpName: elementCount_elementCount
+
+          System Lag:
+            units: Seconds
+            miny: 0.0
+            graphpoints:
+              System Lag:
+                dpName: systemLag_systemLag
+
+      StorageBucket:
+        description: Monitoring for Google Cloud Platform Buckets
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.StorageBucket
+        datasources:
+          DEFAULTS:
+            cycletime: ${here/zGoogleCloudPlatformStackDriverMonitoringInterval}
+            type: Google Cloud Platform Stackdriver Monitoring
+            eventClass: /Status
+          sbTotalBytes:
+            service: storage.googleapis.com
+            labels: "bucket_name: ${here/name}"
+            cycletime: 3600
+            metric_type: storage.googleapis.com/storage/total_bytes
+            perSeriesAligner: ALIGN_MEAN
+            aggregator: SUM_OR_ZERO
+            datapoints:
+              sbTotalBytes: GAUGE_MIN_0
+          sbObjectCount:
+            service: storage.googleapis.com
+            labels: "bucket_name: ${here/name}"
+            cycletime: 3600
+            metric_type: storage.googleapis.com/storage/object_count
+            perSeriesAligner: ALIGN_MEAN
+            aggregator: SUM_OR_ZERO
+            datapoints:
+              sbObjectCount: GAUGE_MIN_0
+          sbReceivedBytesCount:
+            service: storage.googleapis.com
+            labels: "bucket_name: ${here/name}"
+            metric_type: storage.googleapis.com/network/received_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM_OR_ZERO
+            datapoints:
+              sbReceivedBytesCount: GAUGE_MIN_0
+          sbSentBytesCount:
+            service: storage.googleapis.com
+            labels: "bucket_name: ${here/name}"
+            metric_type: storage.googleapis.com/network/sent_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            aggregator: SUM_OR_ZERO
+            datapoints:
+              sbSentBytesCount: GAUGE_MIN_0
+          sbLastUpdated:
+            type: Google Cloud Platform Storage Monitoring
+            cycletime: 3600
+            datapoints:
+              thirtyDays: GAUGE_MIN_0
+              sixtyDays: GAUGE_MIN_0
+
+        graphs:
+          Total Bytes:
+            units: bytes
+            miny: 0
+            graphpoints:
+              Total Bytes:
+                dpName: sbTotalBytes_sbTotalBytes
+                format: "%7.2lf%s"
+          Object Count:
+            units: Object Count
+            miny: 0
+            graphpoints:
+              Total:
+                dpName: sbObjectCount_sbObjectCount
+                format: "%7.2lf%s"
+              Thirty to Sixty Days Old:
+                dpName: sbLastUpdated_thirtyDays
+                format: "%7.2lf%s"
+              Older Than Sixty Days:
+                dpName: sbLastUpdated_sixtyDays
+                format: "%7.2lf%s"
+          Network Throughput:
+            units: bytes/sec
+            miny: 0
+            graphpoints:
+              Sent Bytes Count:
+                dpName: sbSentBytesCount_sbSentBytesCount
+                format: "%7.2lf%s"
+              Received Bytes Count:
+                dpName: sbReceivedBytesCount_sbReceivedBytesCount
+                format: "%7.2lf%s"
+
+      BigQuery:
+        description: Monitoring for Google Cloud BigQuery Dataset
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.BigQuery
+        datasources:
+          bqTables:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bqTables: GAUGE
+            cycletime: 10800
+            metric_type: bigquery.googleapis.com/storage/table_count
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_SUM
+            groupByFields: resource.label."dataset_id"
+            aggregator: SUM
+            labels: dataset_id:${here/title}
+            service: bigquery.googleapis.com
+
+          bqUploadedRows:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bqUploadedRows: GAUGE
+            cycletime: 21720
+            metric_type: bigquery.googleapis.com/storage/uploaded_row_count
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_SUM
+            groupByFields: resource.label."dataset_id"
+            aggregator: SUM_OR_ZERO
+            labels: dataset_id:${here/title}
+            service: bigquery.googleapis.com
+
+          bqUploadedBytes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bqUploadedBytes: GAUGE
+            cycletime: 21720
+            metric_type: bigquery.googleapis.com/storage/uploaded_bytes
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_NONE
+            groupByFields: resource.label."dataset_id"
+            aggregator: SUM_OR_ZERO
+            labels: dataset_id:${here/title}
+            service: bigquery.googleapis.com
+
+          bqStoredBytes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bqStoredBytes: GAUGE
+            cycletime: 10800
+            metric_type: bigquery.googleapis.com/storage/stored_bytes
+            filter_: ''
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_SUM
+            groupByFields: resource.label."dataset_id"
+            aggregator: SUM
+            labels: dataset_id:${here/title}
+            service: bigquery.googleapis.com
+
+          bqUploadedBilledBytes:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bqUploadedBilledBytes: GAUGE
+            cycletime: 21720
+            metric_type: bigquery.googleapis.com/storage/uploaded_bytes_billed
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_NONE
+            groupByFields: resource.label."dataset_id"
+            aggregator: SUM_OR_ZERO
+            labels: dataset_id:${here/title}
+            service: bigquery.googleapis.com
+
+        graphs:
+          Stored Bytes:
+            units: Bytes
+            miny: 0.0
+            graphpoints:
+              storedBytes:
+                dpName: bqStoredBytes_bqStoredBytes
+
+          Tables:
+            units: Tables
+            miny: 0.0
+            graphpoints:
+              tables:
+                dpName: bqTables_bqTables
+
+          Uploaded Rows:
+            units: Rows / Minute
+            miny: 0.0
+            graphpoints:
+              uploadedRows:
+                dpName: bqUploadedRows_bqUploadedRows
+
+      BigTableCluster:
+        description: Monitoring for Google Cloud BigTable Cluster
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.BigTableCluster
+        datasources:
+          btcStatus:
+            type: Google Cloud Platform Status
+            eventClass: /Unknown
+            eventClassKey: gcp-status-bigtable-cluster
+            eventKey: gcp-status-bigtable-cluster
+            severity: Error
+            statusField: state
+            eventValues: |-
+              STATE_NOT_KNOWN
+              DISABLED
+            datapoints:
+              btcStatus: GAUGE
+          btcCpuLoad:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btcCpuLoad: GAUGE
+            metric_type: bigtable.googleapis.com/cluster/cpu_load
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: PERCENT_AVERAGE
+            labels: cluster:${here/title}
+            service: bigtable.googleapis.com
+
+          btcCpuLoadHottestNode:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btcCpuLoadHottestNode: GAUGE
+            metric_type: bigtable.googleapis.com/cluster/cpu_load_hottest_node
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: PERCENT_AVERAGE
+            labels: cluster:${here/title}
+            service: bigtable.googleapis.com
+
+          btcDiskLoad:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btcDiskLoad: GAUGE
+            metric_type: bigtable.googleapis.com/cluster/disk_load
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: PERCENT_AVERAGE
+            labels: cluster:${here/title}
+            service: bigtable.googleapis.com
+
+          btcNodeCount:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btcNodeCount: GAUGE
+            metric_type: bigtable.googleapis.com/cluster/node_count
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            labels: cluster:${here/title}
+            service: bigtable.googleapis.com
+
+          btcStorageUtilization:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btcStorageUtilization: GAUGE
+            metric_type: bigtable.googleapis.com/cluster/storage_utilization
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: PERCENT_AVERAGE
+            labels: cluster:${here/title}
+            service: bigtable.googleapis.com
+
+          btcDiskBytesUsed:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btcDiskBytesUsed: GAUGE
+            metric_type: bigtable.googleapis.com/disk/bytes_used
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            labels: cluster:${here/title}
+            service: bigtable.googleapis.com
+
+          btcStorageCapacity:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btcStorageCapacity: GAUGE
+            metric_type: bigtable.googleapis.com/disk/storage_capacity
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            labels: cluster:${here/title}
+            service: bigtable.googleapis.com
+
+        thresholds:
+          "70 percent CPU utilization":
+            type: MinMaxThreshold
+            maxval: 70
+            eventClass: /Perf/CPU
+            dsnames: [btcCpuLoad_btcCpuLoad]
+
+          "90 percent hottest CPU utilization":
+            type: MinMaxThreshold
+            maxval: 90
+            eventClass: /Perf/CPU
+            dsnames: [btcCpuLoadHottestNode_btcCpuLoadHottestNode]
+
+        graphs:
+          CPU Load:
+            units: Percent
+            miny: 0.0
+            graphpoints:
+              cpuLoad:
+                dpName: btcCpuLoad_btcCpuLoad
+          CPU Load Hottest Node:
+            units: Percent
+            miny: 0.0
+            graphpoints:
+              cpuLoadHottestNode:
+                dpName: btcCpuLoadHottestNode_btcCpuLoadHottestNode
+          Disk Load:
+            units: Percent
+            miny: 0.0
+            graphpoints:
+              diskLoad:
+                dpName: btcDiskLoad_btcDiskLoad
+          Node Count:
+            units: Node Count
+            miny: 0.0
+            graphpoints:
+              nodeCount:
+                dpName: btcNodeCount_btcNodeCount
+          Storage Utilization:
+            units: Percent
+            miny: 0.0
+            graphpoints:
+              storageUtilization:
+                dpName: btcStorageUtilization_btcStorageUtilization
+          Disk Bytes Used:
+            units: Bytes
+            miny: 0.0
+            graphpoints:
+              diskBytesUsed:
+                dpName: btcDiskBytesUsed_btcDiskBytesUsed
+          Storage Capacity:
+            units: Bytes
+            miny: 0.0
+            graphpoints:
+              storageCapacity:
+                dpName: btcStorageCapacity_btcStorageCapacity
+
+      BigTableInstance:
+        description: Monitoring for Google Cloud BigTable Instance
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.BigTableInstance
+        datasources:
+          btiStatus:
+            type: Google Cloud Platform Status
+            eventClass: /Unknown
+            eventClassKey: gcp-status-bigtable-instance
+            eventKey: gcp-status-bigtable-instance
+            severity: Error
+            statusField: state
+            eventValues: |-
+              STATE_NOT_KNOWN
+            datapoints:
+              btiStatus: GAUGE
+          btiCpuLoad:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btiCpuLoad: GAUGE
+            metric_type: bigtable.googleapis.com/cluster/cpu_load
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: PERCENT_AVERAGE
+            labels: instance:${here/title}
+            service: bigtable.googleapis.com
+
+          btiCpuLoadHottestNode:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btiCpuLoadHottestNode: GAUGE
+            metric_type: bigtable.googleapis.com/cluster/cpu_load_hottest_node
+            perSeriesAligner: ALIGN_MAX
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: PERCENT_AVERAGE
+            labels: instance:${here/title}
+            service: bigtable.googleapis.com
+
+          btiDiskLoad:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btiDiskLoad: GAUGE
+            metric_type: bigtable.googleapis.com/cluster/disk_load
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: PERCENT_AVERAGE
+            labels: instance:${here/title}
+            service: bigtable.googleapis.com
+
+          btiNodeCount:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btiNodeCount: GAUGE
+            metric_type: bigtable.googleapis.com/cluster/node_count
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            labels: instance:${here/title}
+            service: bigtable.googleapis.com
+
+          btiStorageUtilization:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btiStorageUtilization: GAUGE
+            metric_type: bigtable.googleapis.com/cluster/storage_utilization
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: PERCENT_AVERAGE
+            labels: instance:${here/title}
+            service: bigtable.googleapis.com
+
+          btiDiskBytesUsed:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btiDiskBytesUsed: GAUGE
+            metric_type: bigtable.googleapis.com/disk/bytes_used
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            labels: instance:${here/title}
+            service: bigtable.googleapis.com
+
+          btiStorageCapacity:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              btiStorageCapacity: GAUGE
+            metric_type: bigtable.googleapis.com/disk/storage_capacity
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            labels: instance:${here/title}
+            service: bigtable.googleapis.com
+
+        thresholds:
+          "70 percent CPU utilization":
+            type: MinMaxThreshold
+            maxval: 70
+            eventClass: /Perf/CPU
+            dsnames: [btiCpuLoad_btiCpuLoad]
+
+          "90 percent hottest CPU utilization":
+            type: MinMaxThreshold
+            maxval: 90
+            eventClass: /Perf/CPU
+            dsnames: [btiCpuLoadHottestNode_btiCpuLoadHottestNode]
+
+        graphs:
+          CPU Load:
+            units: Percent
+            miny: 0.0
+            graphpoints:
+              cpuLoad:
+                dpName: btiCpuLoad_btiCpuLoad
+          CPU Load Hottest Node:
+            units: Percent
+            miny: 0.0
+            graphpoints:
+              cpuLoadHottestNode:
+                dpName: btiCpuLoadHottestNode_btiCpuLoadHottestNode
+          Disk Load:
+            units: Percent
+            miny: 0.0
+            graphpoints:
+              diskLoad:
+                dpName: btiDiskLoad_btiDiskLoad
+          Node Count:
+            units: Node Count
+            miny: 0.0
+            graphpoints:
+              nodeCount:
+                dpName: btiNodeCount_btiNodeCount
+          Storage Utilization:
+            units: Percent
+            miny: 0.0
+            graphpoints:
+              storageUtilization:
+                dpName: btiStorageUtilization_btiStorageUtilization
+          Disk Bytes Used:
+            units: Bytes
+            miny: 0.0
+            graphpoints:
+              diskBytesUsed:
+                dpName: btiDiskBytesUsed_btiDiskBytesUsed
+          Storage Capacity:
+            units: Bytes
+            miny: 0.0
+            graphpoints:
+              storageCapacity:
+                dpName: btiStorageCapacity_btiStorageCapacity
+
+      BigTableTable:
+        description: Monitoring for Google Cloud BigTable Table
+        targetPythonClass: ZenPacks.zenoss.GoogleCloudPlatform.BigTableTable
+        datasources:
+          bttReplicationMaxDelay:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bttReplicationMaxDelay: GAUGE
+            metric_type: bigtable.googleapis.com/replication/max_delay
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: MAX
+            labels: table:${here/title}
+            service: bigtable.googleapis.com
+
+          bttReplicationLatency:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bttReplicationLatency: GAUGE
+            metric_type: bigtable.googleapis.com/replication/latency
+            perSeriesAligner: ALIGN_SUM
+            crossSeriesReducer: REDUCE_PERCENTILE_99
+            groupByFields: resource.labels.table
+            aggregator: AVERAGE
+            labels: table:${here/title}
+            service: bigtable.googleapis.com
+
+          bttErrorCount:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bttErrorCount: GAUGE
+            metric_type: bigtable.googleapis.com/server/error_count
+            perSeriesAligner: ALIGN_DELTA
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM
+            labels: table:${here/title}
+            service: bigtable.googleapis.com
+
+          bttModifiedRowsCount:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bttModifiedRowsCount: GAUGE
+            metric_type: bigtable.googleapis.com/server/modified_rows_count
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: AVERAGE
+            labels: table:${here/title}
+            service: bigtable.googleapis.com
+
+          bttServerLatencies:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bttServerLatencies: GAUGE
+            metric_type: bigtable.googleapis.com/server/latencies
+            perSeriesAligner: ALIGN_SUM
+            crossSeriesReducer: REDUCE_PERCENTILE_99
+            groupByFields: resource.labels.table
+            aggregator: AVERAGE
+            labels: table:${here/title}
+            service: bigtable.googleapis.com
+
+          bttReceivedBytesCount:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bttReceivedBytesCount: GAUGE
+            metric_type: bigtable.googleapis.com/server/received_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: AVERAGE
+            labels: table:${here/title}
+            service: bigtable.googleapis.com
+
+          bttRequestCount:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bttRequestCount: GAUGE
+            metric_type: bigtable.googleapis.com/server/request_count
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: AVERAGE
+            labels: table:${here/title}
+            service: bigtable.googleapis.com
+
+          bttReturnedRowsCount:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bttReturnedRowsCount: GAUGE
+            metric_type: bigtable.googleapis.com/server/returned_rows_count
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: AVERAGE
+            labels: table:${here/title}
+            service: bigtable.googleapis.com
+
+          bttSentBytesCount:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bttSentBytesCount: GAUGE
+            metric_type: bigtable.googleapis.com/server/sent_bytes_count
+            perSeriesAligner: ALIGN_RATE
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: AVERAGE
+            labels: table:${here/title}
+            service: bigtable.googleapis.com
+
+          bttTableBytesUsed:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              bttTableBytesUsed: GAUGE
+            metric_type: bigtable.googleapis.com/table/bytes_used
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            labels: table:${here/title}
+            service: bigtable.googleapis.com
+
+        graphs:
+          Replication Max Delay:
+            units: Seconds
+            miny: 0.0
+            graphpoints:
+              replicationMaxDelay:
+                dpName: bttReplicationMaxDelay_bttReplicationMaxDelay
+          Replication Latency:
+            units: Milliseconds
+            miny: 0.0
+            graphpoints:
+              replicationLatency:
+                dpName: bttReplicationLatency_bttReplicationLatency
+          Error Count:
+            units: Error Count
+            miny: 0.0
+            graphpoints:
+              errorCount:
+                dpName: bttErrorCount_bttErrorCount
+          Modified Rows Count:
+            units: Rows/Sec
+            miny: 0.0
+            graphpoints:
+              modifiedRowsCount:
+                dpName: bttModifiedRowsCount_bttModifiedRowsCount
+          Server Latencies:
+            units: Milliseconds
+            miny: 0.0
+            graphpoints:
+              serverLatencies:
+                dpName: bttServerLatencies_bttServerLatencies
+          Received Bytes Count:
+            units: Rows/Sec
+            miny: 0.0
+            graphpoints:
+              receivedBytesCount:
+                dpName: bttReceivedBytesCount_bttReceivedBytesCount
+          Sent Bytes Count:
+            units: Bytes/Sec
+            miny: 0.0
+            graphpoints:
+              sentBytesCount:
+                dpName: bttSentBytesCount_bttSentBytesCount
+          Returned Rows Count:
+            units: Rows/Sec
+            miny: 0.0
+            graphpoints:
+              returnedRowsCount:
+                dpName: bttReturnedRowsCount_bttReturnedRowsCount
+          Request Count:
+            units: Requests/Sec
+            miny: 0.0
+            graphpoints:
+              requestCount:
+                dpName: bttRequestCount_bttRequestCount
+          Bytes Used:
+            units: Bytes
+            miny: 0.0
+            graphpoints:
+              TableBytesUsed:
+                dpName: bttTableBytesUsed_bttTableBytesUsed
+##############################################################################
+
+event_classes:
+  /Status:
+    remove: false
+    mappings:
+      DEFAULTS:
+        remove: true
+        sequence: 99
+
+      gcp-status-api: {}
+      gcp-status-region: {}
+      gcp-status-image: {}
+      gcp-status-snapshot: {}
+      gcp-status-snapshot-storage: {}
+      gcp-status-zone: {}
+      gcp-status-instance: {}
+      gcp-status-kubernetes-cluster: {}
+      gcp-status-kubernetes-nodePool: {}
+      gcp-status-function: {}
+      gcp-status-bigtable-instance: {}
+      gcp-status-bigtable-cluster: {}
+
+  /GoogleCloudPlatform:
+    remove: true

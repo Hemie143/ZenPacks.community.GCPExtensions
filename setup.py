@@ -2,12 +2,12 @@
 # These variables are overwritten by Zenoss when the ZenPack is exported
 # or saved.  Do not modify them directly here.
 # NB: PACKAGES is deprecated
-NAME = "ZenPacks.community.GCPComplement"
+NAME = "ZenPacks.community.GCPExtensions"
 VERSION = "1.0.0"
 AUTHOR = "Laurent Hemeryck"
-LICENSE = ""
+LICENSE = "GPLv2"
 NAMESPACE_PACKAGES = ['ZenPacks', 'ZenPacks.community']
-PACKAGES = ['ZenPacks', 'ZenPacks.community', 'ZenPacks.community.GCPComplement']
+PACKAGES = ['ZenPacks', 'ZenPacks.community', 'ZenPacks.community.GCPExtensions']
 INSTALL_REQUIRES = ['ZenPacks.zenoss.ZenPackLib', 'ZenPacks.zenoss.GoogleCloudPlatform', 'ZenPacks.zenoss.PythonCollector']
 COMPAT_ZENOSS_VERS = ""
 PREV_ZENPACK_NAME = ""
