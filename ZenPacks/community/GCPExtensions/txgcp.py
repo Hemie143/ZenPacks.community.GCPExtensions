@@ -30,9 +30,9 @@ from twisted.web.client import getPage
 from twisted.web.error import Error as TxWebError
 
 # ZenPack Imports
-from . import jwt
-from .txutils import txtimeout
-from .utils import maybe_bounded
+from ZenPacks.zenoss.GoogleCloudPlatform import jwt
+from ZenPacks.zenoss.GoogleCloudPlatform.txutils import txtimeout
+from ZenPacks.zenoss.GoogleCloudPlatform.utils import maybe_bounded
 
 # Service URLs
 COMPUTE_API = "https://www.googleapis.com/compute/v1"

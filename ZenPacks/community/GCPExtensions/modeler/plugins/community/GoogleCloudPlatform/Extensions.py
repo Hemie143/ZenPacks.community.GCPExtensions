@@ -11,7 +11,7 @@
 
 # Default Exports
 __all__ = [
-    "Project",
+    # "Project",
     "Extensions",
 ]
 
@@ -28,7 +28,8 @@ from Products.DataCollector.plugins.CollectorPlugin import PythonPlugin
 # ZenPack Imports
 # from ZenPacks.zenoss.GoogleCloudPlatform import modeling
 from ZenPacks.community.GCPExtensions import modeling
-from ZenPacks.community.GCPExtensions.utils import (
+# from ZenPacks.community.GCPExtensions.utils import (
+from ZenPacks.zenoss.GoogleCloudPlatform.utils import (
     valid_project_id,
     valid_email_address,
     valid_private_key,

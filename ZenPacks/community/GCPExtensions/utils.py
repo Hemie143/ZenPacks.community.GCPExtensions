@@ -30,7 +30,8 @@ from Products.ZenModel.MaintenanceWindowable import MaintenanceWindowable
 
 
 # ZenPack Imports
-from . import jwt
+# from . import jwt
+from ZenPacks.zenoss.GoogleCloudPlatform import jwt
 
 LOG = logging.getLogger('zen.GCP.utils')
 

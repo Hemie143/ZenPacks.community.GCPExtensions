@@ -27,7 +27,7 @@ from twisted.internet import defer
 from twisted.python.failure import Failure as TxFailure
 
 # ZenPack Imports
-from .constants import (
+from ZenPacks.zenoss.GoogleCloudPlatform.constants import (
     KIND_MAP,
     PROJECT_KINDS,
     PROJECT_GLOBAL_KINDS,
@@ -40,12 +40,13 @@ from Products.ZenUtils.Utils import prepId
 
 from . import txgcp
 from .mapper import DataMapper
-from .utils import (maybe_int,
-                    is_greater_timestamp,
-                    find_first_shared_label,
-                    guest_status_prodState_map,
-                    getLabelToDeviceClassMap)
-from .zopeutils import get_id
+from ZenPacks.zenoss.GoogleCloudPlatform.utils import (maybe_int,
+                                                       is_greater_timestamp,
+                                                       find_first_shared_label,
+                                                       guest_status_prodState_map,
+                                                       getLabelToDeviceClassMap)
+# from .zopeutils import get_id
+from ZenPacks.zenoss.GoogleCloudPlatform.zopeutils import get_id
 from ZenPacks.zenoss.GoogleCloudPlatform.labels import labels_list
 
 LOG = logging.getLogger("zen.GoogleCloudPlatform")

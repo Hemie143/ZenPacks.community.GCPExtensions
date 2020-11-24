@@ -1,24 +1,12 @@
 name: ZenPacks.community.GCPExtensions
 
 class_relationships:
-#   - ProjectDevice(cloudSQLInstances) 1:MC (project)CloudSQLInstance
-#   - Products.ZenModel.Device.Device(cloudSQLInstances) 1:MC (project)CloudSQLInstance
   - ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice(cloudSQLInstances) 1:MC (project)CloudSQLInstance
   - ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice(subcriptions) 1:MC (project)Subcription
   - CloudSQLInstance(cloudSQLDatabases) 1:MC (cloudSQLInstance)CloudSQLDatabase
-
-# - Products.ZenModel.Device.Device(tests) 1:MC (project)Test
-#   - Products.ZenModel.Device.Device(silicons) 1:MC (project)Silicon
-#   - Products.ZenModel.Device.Device(sQLInstances) 1:MC (project)SQLInstance
-#   - CloudSQLInstance 1:MC CloudSQLDatabase
-#   - ComputeZone(cloudSQLInstances) 1:M (zone)CloudSQLInstance
   - ZenPacks.zenoss.GoogleCloudPlatform.ComputeZone.ComputeZone(cloudSQLInstances) 1:M (zone)CloudSQLInstance
-#   - ComputeZone(bigTableClusters) 1:M (zone)BigTableCluster
 
 classes:
-#   ProjectDevice:
-#     base: [zenpacklib.Device, ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice]
-#     base: [zenpacklib.Device]
 
   CloudSQLInstance:
     base: [zenpacklib.Component]
@@ -46,13 +34,13 @@ classes:
         grid_display: false
       ipAddress:
         label: IP Address
-        grid_display: false
+        grid_display: true
       connectionName:
         label: Connection Name
         grid_display: false
       databaseVersion:
         label: Database Version
-        grid_display: false
+        grid_display: true
       database_id:
         label: Database ID
         grid_display: false
@@ -91,7 +79,7 @@ device_classes:
         datasources:
           cpu_utilization:
             type: Google Cloud Platform Stackdriver Monitoring
-            aggregator: SUM_OR_ZERO
+            aggregator: PERCENT_AVERAGE
             crossSeriesReducer: REDUCE_NONE
             filter_: resource.labels.database_id="${here/database_id}"
             metric_type: cloudsql.googleapis.com/database/cpu/utilization
@@ -109,7 +97,6 @@ device_classes:
             service: cloudsql.googleapis.com
             datapoints:
               mem_utilization: GAUGE_MIN_0_MAX_100
-
         graphs:
           CPU Utilization:
             units: percent
@@ -139,3 +126,9 @@ device_classes:
             service: cloudsql.googleapis.com
             datapoints:
               connections: GAUGE_MIN_0
+        graphs:
+          Connections:
+            miny: 0.0
+            graphpoints:
+              connections:
+                dpName: connections_connections
