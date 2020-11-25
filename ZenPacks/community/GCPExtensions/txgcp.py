@@ -9,7 +9,7 @@
 
 # Default Exports - Other symbols should be considered private to the module.
 __all__ = [
-    "Client",
+    "ClientExt",
     "RequestError",
 ]
 
@@ -59,7 +59,7 @@ REQUEST_TIMEOUT = 60
 LOG = logging.getLogger("zen.GoogleCloudPlatform")
 
 
-class Client(object):
+class ClientExt(object):
     def __init__(
             self,
             client_email=None,
