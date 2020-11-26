@@ -43,9 +43,17 @@ class CollectorExt(Collector):
         # Get singular project details.
         self.operations.append((project.get, ()))
 
+        # CloudSQL
         self.operations.append((
             self.collect_cloudsql_instances,
             (project_name,)))
+
+        # PubSub
+        '''
+        self.operations.append((
+            self.collect_subscriptions,
+            (project_name,)))
+        '''
 
         return self.collect_phase([], 1)
 
