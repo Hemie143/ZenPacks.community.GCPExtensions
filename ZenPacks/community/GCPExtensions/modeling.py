@@ -165,7 +165,7 @@ class CollectorOptions(object):
 class Collector(object):
     def __init__(self, device, testing=False, save_responses=False):
 
-        self.client = txgcp.Client(
+        self.client = txgcp.ClientExt(
             client_email=device.zGoogleCloudPlatformClientEmail,
             private_key=device.zGoogleCloudPlatformPrivateKey,
             compute_maxResults=device.zGoogleCloudPlatformComputeMaxResults,
@@ -214,12 +214,12 @@ class Collector(object):
             for x in self.options.project_aggregated_kinds())
         '''
 
-
+        '''
         # Make call to Stackdriver and get list of K8 instance_ids..
         self.operations.append((
             self.collect_kubernetes_clusters,
             (project_name,)))
-
+        '''
 
         ''' 
         # Make call to GCP Functions

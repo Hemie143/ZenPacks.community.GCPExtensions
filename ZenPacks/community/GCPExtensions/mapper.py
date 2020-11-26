@@ -285,8 +285,8 @@ class DataMapper(object):
         for object_id, datum in self.objects.items():
             object_type = self.get_object_type(object_id)
 
-            # print('ZZZ get_full_datamaps object_id: {}'.format(object_id))
-            # print('ZZZ get_full_datamaps object_type: {}'.format(object_type))
+            print('ZZZ get_full_datamaps object_id: {}'.format(object_id))
+            print('ZZZ get_full_datamaps object_type: {}'.format(object_type))
 
             object_path = self.get_path(object_id)
             ids_by_path[object_path].append(object_id)
@@ -438,7 +438,7 @@ class DataMapper(object):
     def get_path(self, object_id):
         """Return (compname, relname) tuple for object_id."""
 
-        # print('YYYYYY get_path object_id: {}'.format(object_id))
+        print('YYYYYY get_path object_id: {}'.format(object_id))
 
 
         if hasattr(self, "_path_cache"):
@@ -448,11 +448,11 @@ class DataMapper(object):
         else:
             self._path_cache = {}
 
-        # print('YYYYYY get_path NO _path_cache')
+        print('YYYYYY get_path NO _path_cache')
 
         object_type = self.get_object_type(object_id)
 
-        # print('YYYYYY get_path object_type: {}'.format(object_type))
+        print('YYYYYY get_path object_type: {}'.format(object_type))
 
         if object_type.device:
             self._path_cache[object_id] = ("", "")
