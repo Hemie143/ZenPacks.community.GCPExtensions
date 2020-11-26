@@ -52,21 +52,12 @@ class DataMapper(object):
     def add(self, object_id, datum):
         obj = self.stub(object_id)
 
-        # print('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
-        # print('XXX add object_id: {}'.format(object_id))
-        # print('XXX add datum: {}'.format(datum))
-        # print('XXX add obj: {}'.format(obj))
-
         object_type = self.get_object_type(object_id, datum)
         if not object_type:
             raise Exception("no type specified for %s", object_id)
 
-        # print('XXX add object_type: {}'.format(object_type))
-
         obj["type"] = object_type.name
         self.objects_by_type[object_type.name].add(object_id)
-
-        # print('XXX add objects_by_type: {}'.format(self.objects_by_type))
 
         if "title" in datum:
             obj["title"] = datum["title"]
@@ -97,8 +88,6 @@ class DataMapper(object):
                           'modname': datum.get('type')}
 
             self.delayed.update({object_id: delay_data})
-
-        # print('XXX add obj2: {}'.format(obj))
 
     def update(self, data):
         for object_id, datum in data.iteritems():
@@ -154,13 +143,6 @@ class DataMapper(object):
 
     def add_link(self, object_id, object_type, link_name, remote_ids):
         link_type = object_type.get_link_type(link_name)
-
-        # print('GGG add_link object_id: {}'.format(object_id))
-        # print('GGG add_link object_type: {}'.format(object_type))
-        # print('GGG add_link link_name: {}'.format(link_name))
-        # print('GGG add_link remote_ids: {}'.format(remote_ids))
-        # print('GGG add_link link_type: {}'.format(link_type))
-
         if not link_type:
             raise Exception(
                 "invalid link name for {}: {}".format(
@@ -171,13 +153,8 @@ class DataMapper(object):
         elif isinstance(remote_ids, basestring):
             remote_ids = [remote_ids]
 
-        # print('GGG add_link remote_ids: {}'.format(remote_ids))
-
         local_links = self.objects[object_id]["links"]
         local_links[link_type.local_name].update(remote_ids)
-
-        # print('GGG add_link local_links: {}'.format(local_links))
-
 
         if not link_type.local_many:
             local_link = local_links[link_type.local_name]
@@ -272,8 +249,6 @@ class DataMapper(object):
         ids_by_path = collections.defaultdict(list)
         links_by_id = collections.defaultdict(dict)
 
-        # print('ZZZ get_full_datamaps objects: {}'.format(self.objects))
-
         # Remove objects that were stubbed, but never specified.
         valid_object_ids = set()
         for object_id, datum in self.objects.items():
@@ -284,25 +259,13 @@ class DataMapper(object):
 
         for object_id, datum in self.objects.items():
             object_type = self.get_object_type(object_id)
-
-            print('ZZZ get_full_datamaps object_id: {}'.format(object_id))
-            print('ZZZ get_full_datamaps object_type: {}'.format(object_type))
-
             object_path = self.get_path(object_id)
             ids_by_path[object_path].append(object_id)
             rm_dependencies.add_node(object_path)
 
             links = self.objects.get(object_id, {}).get("links", {})
             for link_name, remote_ids in links.iteritems():
-
-                # print('ZZZ get_full_datamaps ZZZ')
-                # print('ZZZ get_full_datamaps link_name: {}'.format(link_name))
-                # print('ZZZ get_full_datamaps remote_ids: {}'.format(remote_ids))
-
                 link_type = object_type.get_link_type(link_name)
-
-                # print('ZZZ get_full_datamaps object_type: {}'.format(object_type))
-                # print('ZZZ get_full_datamaps link_type: {}'.format(link_type))
 
                 # Prune links to nonexistent objects.
                 remote_ids = remote_ids.intersection(valid_object_ids)
@@ -429,31 +392,17 @@ class DataMapper(object):
 
         # Extend the datamaps with the delayed_oms, if any:
         datamaps.extend(self.delayed_oms)
-
-
-        # print('ZZZ get_full_datamaps datamaps: {}'.format(datamaps))
-
         return datamaps
 
     def get_path(self, object_id):
         """Return (compname, relname) tuple for object_id."""
-
-        print('YYYYYY get_path object_id: {}'.format(object_id))
-
-
         if hasattr(self, "_path_cache"):
-            # print('YYYYYY get_path FOUND _path_cache')
             if object_id in self._path_cache:
                 return self._path_cache[object_id]
         else:
             self._path_cache = {}
 
-        print('YYYYYY get_path NO _path_cache')
-
         object_type = self.get_object_type(object_id)
-
-        print('YYYYYY get_path object_type: {}'.format(object_type))
-
         if object_type.device:
             self._path_cache[object_id] = ("", "")
         else:
@@ -515,7 +464,6 @@ class ObjectType(object):
             return name
 
     def get_link_type(self, name):
-        # print('AAAA get_link_type name: {}'.format(name))
         return self.link_types.get(name)
 
 
