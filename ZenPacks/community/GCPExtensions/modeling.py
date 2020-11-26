@@ -11,8 +11,8 @@
 
 # Default Exports
 __all__ = [
-    "Collector",
-    "CollectorOptions",
+    "CollectorExt",
+    # "CollectorOptions",
     "process",
 ]
 
@@ -35,11 +35,14 @@ from ZenPacks.zenoss.GoogleCloudPlatform.constants import (
     REGION_KINDS,
     ZONE_KINDS,
 )
+from ZenPacks.zenoss.GoogleCloudPlatform.modeling import validate_modeling_regex, CollectorOptions, Collector
+
 
 from Products.ZenUtils.Utils import prepId
 
 from . import txgcp
-from .mapper import DataMapper
+# from .mapper import DataMapper
+from ZenPacks.zenoss.GoogleCloudPlatform.mapper import DataMapper
 from ZenPacks.zenoss.GoogleCloudPlatform.utils import (maybe_int,
                                                        is_greater_timestamp,
                                                        find_first_shared_label,
@@ -82,7 +85,7 @@ PROJECT_ID = "#PROJECT#"
 ONE_GiB = 1073741824
 ONE_MiB = 1048576
 
-
+'''
 def validate_modeling_regex(device, zprop):
     """ Validate zProp Regex list and return valid composite regex or None
 
@@ -117,8 +120,9 @@ def validate_modeling_regex(device, zprop):
 
     regex = re.compile('(?:{})'.format('|'.join(model_list)))
     return regex
+'''
 
-
+'''
 class CollectorOptions(object):
     def __init__(
             self,
@@ -160,9 +164,9 @@ class CollectorOptions(object):
             x
             for x in self.get_modeled_kinds(ZONE_KINDS)
             if x not in self.project_aggregated_kinds())
+'''
 
-
-class Collector(object):
+class CollectorExt(Collector):
     def __init__(self, device, testing=False, save_responses=False):
 
         self.client = txgcp.ClientExt(
@@ -328,6 +332,7 @@ class Collector(object):
         d.addErrback(handle_failure)
         return d
 
+    '''
     def collect_phase(self, results, phase):
         total_results = len(results)
         success_results = len([x for x in results if x[0]])
@@ -374,7 +379,8 @@ class Collector(object):
         d.addErrback(self.handle_failure)
 
         return d
-
+    '''
+    '''
     def handle_failure(self, failure):
         # Unwrap "FirstError" from DeferredList failure.
         if isinstance(failure, TxFailure):
@@ -382,6 +388,7 @@ class Collector(object):
                 return failure.value.subFailure
 
         return failure
+    '''
 
     def handle_result(self, result):
         """Dispatch result to appropriate handle_* method."""

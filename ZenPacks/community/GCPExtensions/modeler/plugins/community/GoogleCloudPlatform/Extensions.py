@@ -91,7 +91,7 @@ class Extensions(Project):
             "%s: collecting data from Google Cloud Platform APIs",
             device.id)
 
-        collector = modeling.Collector(device)
+        collector = modeling.CollectorExt(device)
         d = collector.collect(device.zGoogleCloudPlatformProjectId)
         d.addErrback(self.handle_failure, device, log)
         return d
