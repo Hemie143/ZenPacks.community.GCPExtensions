@@ -10,20 +10,24 @@
 # Default Exports - Other symbols should be considered private to the module.
 __all__ = [
     "ClientExt",
-    "RequestError",
+    # "RequestError",
 ]
 
 # stdlib Imports
+'''
 import collections
 import itertools
 import json
+'''
 import logging
+'''
 import os
 import re
 import time
 import urllib
 import urlparse
-
+'''
+'''
 # Twisted Imports
 from twisted.internet import defer
 from twisted.web.client import getPage
@@ -33,12 +37,17 @@ from twisted.web.error import Error as TxWebError
 from ZenPacks.zenoss.GoogleCloudPlatform import jwt
 from ZenPacks.zenoss.GoogleCloudPlatform.txutils import txtimeout
 from ZenPacks.zenoss.GoogleCloudPlatform.utils import maybe_bounded
+'''
+from ZenPacks.zenoss.GoogleCloudPlatform.txgcp import Client, TokenManager, ComputeRequest, ComputeEndpoint, Request
 
+'''
 # Service URLs
 COMPUTE_API = "https://www.googleapis.com/compute/v1"
 MONITORING_API = "https://monitoring.googleapis.com/v3"
 KUBERNETES_API = "https://container.googleapis.com"
+'''
 PUBSUB_API = "https://pubsub.googleapis.com"
+'''
 SERVICE_API = "https://servicemanagement.googleapis.com"
 BIGQUERY_API = "https://www.googleapis.com/bigquery/v2"
 CLOUDFUNCTIONS_API = "https://cloudfunctions.googleapis.com"
@@ -46,20 +55,27 @@ DATAFLOW_API = "https://dataflow.googleapis.com"
 STORAGE_API = "https://www.googleapis.com/storage/v1"
 BIGTABLE_API = "https://bigtableadmin.googleapis.com/v2"
 LOGGING_API = "https://logging.googleapis.com/v2"
+'''
 CLOUDSQL_API = "https://sqladmin.googleapis.com/sql/v1beta4"
+'''
 # Auth Scopes
 SCOPE_COMPUTE = "https://www.googleapis.com/auth/compute"
 SCOPE_COMPUTE_READONLY = "https://www.googleapis.com/auth/compute.readonly"
 SCOPE_MONITORING_READ = "https://www.googleapis.com/auth/monitoring.read"
+'''
 SCOPE_CLOUD_PLATFORM = "https://www.googleapis.com/auth/cloud-platform"
-
+'''
+'''
 # Timeout for requests in seconds.
+'''
 REQUEST_TIMEOUT = 60
+'''
 
-LOG = logging.getLogger("zen.GoogleCloudPlatform")
+LOG = logging.getLogger("zen.GCPExtensions")
 
 
-class ClientExt(object):
+class ClientExt(Client):
+    '''
     def __init__(
             self,
             client_email=None,
@@ -107,14 +123,14 @@ class ClientExt(object):
 
     def compute_project(self, project):
         return ComputeProject(self, project)
-
+    '''
     def cloudsql(self, project):
         return CloudSQL(self, project)
 
     def subscriptions(self, project):
         LOG.debug('XXXX subscriptions project: {}'.format(project))
         return PubSubscription(self, project)
-
+    '''
     def get(self, url, scope):
         return self.request(
             method="GET",
@@ -213,8 +229,9 @@ class ClientExt(object):
             error.get("status"),
             error.get("details"),
             failure.value)
+    '''
 
-
+'''
 class RequestError(Exception):
     def __init__(self, msg, code, status, details, original):
         super(RequestError, self).__init__(msg)
@@ -222,8 +239,9 @@ class RequestError(Exception):
         self.status = status
         self.details = details
         self.original = original
+'''
 
-
+'''
 class TokenManager(object):
     Credentials = collections.namedtuple(
         "Credentials", [
@@ -330,14 +348,15 @@ class TokenManager(object):
     def onTokenResult(self, result, credentials):
         self.locks[credentials].release()
         return result
+'''
 
-
+'''
 # Singleton that allows sharing of tokens among Client instances.
 TOKEN_MANAGER = TokenManager()
-
+'''
 
 # Request Types ##############################################################
-
+'''
 class Request(object):
     BASE_URL = "https://www.googleapis.com"
     SCOPE = SCOPE_CLOUD_PLATFORM
@@ -377,8 +396,8 @@ class Request(object):
             url=self.url,
             data=self.data,
             scope=self.scope)
-
-
+'''
+'''
 class ComputeRequest(Request):
     BASE_URL = COMPUTE_API
     SCOPE = SCOPE_COMPUTE_READONLY
@@ -432,7 +451,7 @@ class ComputeRequest(Request):
             d = defer.succeed(result)
 
         return d
-
+'''
 
 class CloudSQLRequest(Request):
     def __init__(self, client, path, method="GET", data=None, scope=None):
@@ -457,10 +476,8 @@ class PubSubscriptionRequest(Request):
             scope=scope if scope else SCOPE_CLOUD_PLATFORM)
 
 
-
-
 # Request Issuer Types #######################################################
-
+'''
 class ComputeEndpoint(object):
     PATH_ELEMENTS = ()
     DEFAULT_SCOPE = SCOPE_COMPUTE_READONLY
@@ -488,8 +505,9 @@ class ComputeEndpoint(object):
             path=full_path,
             method=method,
             scope=scope or self.DEFAULT_SCOPE).request()
+'''
 
-
+'''
 class ComputeProject(ComputeEndpoint):
     PATH_ELEMENTS = ("projects",)
 
@@ -501,7 +519,7 @@ class ComputeProject(ComputeEndpoint):
 
     def aggregated_list(self, collection):
         return self.get("aggregated/{}".format(collection))
-
+'''
 
 class CloudSQL(object):
     def __init__(self, client, project):
@@ -534,7 +552,7 @@ class PubSubscription(object):
             path="v1/{}/subscriptions".format(
                 self.project)).request()
 
-
+'''
 def load_credentials():
     credentials_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
     if not credentials_path:
@@ -542,10 +560,10 @@ def load_credentials():
 
     with open(credentials_path, "r") as credentials_file:
         return json.load(credentials_file)
-
+'''
 
 # Simulation Utilities #######################################################
-
+'''
 def save_response(url, response):
     responses_dir = "-".join((os.path.splitext(__file__)[0], "responses"))
     response_path = "{}.json".format(
@@ -585,3 +603,4 @@ def load_mock_responses():
                 mock_responses[url_path] = response_file.read()
 
     return mock_responses
+'''

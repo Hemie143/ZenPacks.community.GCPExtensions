@@ -105,6 +105,7 @@ device_classes:
             graphpoints:
               CPU Utilization:
                 dpName: cpu_utilization_cpu_utilization
+                sequence: 1
           Memory Utilization:
             units: percent
             miny: 0.0
@@ -112,7 +113,7 @@ device_classes:
             graphpoints:
               Memory Utilization:
                 dpName: mem_utilization_mem_utilization
-
+                sequence: 1
 
       CloudSQLDatabase:
         targetPythonClass: ZenPacks.community.GCPExtensions.CloudSQLDatabase
@@ -132,3 +133,4 @@ device_classes:
             graphpoints:
               connections:
                 dpName: connections_connections
+                sequence: 1
