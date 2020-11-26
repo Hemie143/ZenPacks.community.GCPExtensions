@@ -25,7 +25,6 @@ class ClientExt(Client):
         return CloudSQL(self, project)
 
     def subscriptions(self, project):
-        LOG.debug('XXXX subscriptions project: {}'.format(project))
         return PubSubscription(self, project)
 
 # Request Types ##############################################################
@@ -42,9 +41,6 @@ class CloudSQLRequest(Request):
 
 class PubSubscriptionRequest(Request):
     def __init__(self, client, path, method="GET", data=None, scope=None):
-        LOG.debug('XXXXX PubSubscriptionRequest')
-        LOG.debug('XXXXX PubSubscriptionRequest url: {}'.format("{}/{}".format(PUBSUB_API, path)))
-
         super(PubSubscriptionRequest, self).__init__(
             client=client,
             url="{}/{}".format(PUBSUB_API, path),
@@ -75,12 +71,10 @@ class CloudSQL(object):
 
 class PubSubscription(object):
     def __init__(self, client, project):
-        LOG.debug('XXXX PubSubscription __init__')
         self.client = client
         self.project = project
 
     def instances(self):
-        LOG.debug('XXXX PubSubscription instances')
         return PubSubscriptionRequest(
             client=self.client,
             path="v1/{}/subscriptions".format(

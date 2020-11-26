@@ -1,12 +1,3 @@
-##############################################################################
-#
-# Copyright (C) Zenoss, Inc. 2016-2019, all rights reserved.
-#
-# This content is made available according to terms specified in
-# License.zenoss under the directory where your Zenoss product is installed.
-#
-##############################################################################
-
 """Models Google Cloud Platform extra resources."""
 
 # Default Exports
@@ -14,21 +5,13 @@ __all__ = [
     "Extensions",
 ]
 
-# stdlib Imports
-# import json
-
-# Twisted Imports
-from twisted.python.failure import Failure as TxFailure
-from twisted.web.error import Error as TxWebError
 
 # Zenoss Imports
 from Products.DataCollector.plugins.CollectorPlugin import PythonPlugin
 
 # ZenPack Imports
-# from ZenPacks.zenoss.GoogleCloudPlatform import modeling
 from ZenPacks.community.GCPExtensions import modeling
 from ZenPacks.zenoss.GoogleCloudPlatform.modeler.plugins.GoogleCloudPlatform.Project import Project
-# from ZenPacks.community.GCPExtensions.utils import (
 from ZenPacks.zenoss.GoogleCloudPlatform.utils import (
     valid_project_id,
     valid_email_address,
@@ -41,17 +24,6 @@ class Extensions(Project):
         "zGoogleCloudPlatformProjectId",
         "zGoogleCloudPlatformClientEmail",
         "zGoogleCloudPlatformPrivateKey",
-        "zGoogleCloudPlatformGuestUseExternalIP",
-        "zGoogleCloudPlatformComputeMaxResults",
-        "zGoogleCloudPlatformFunctionWhitelist",
-        "zGoogleCloudPlatformDataflowJobNamesModeled",
-        "zGoogleCloudPlatformBigQueryDatasetsModeled",
-        "zGoogleCloudPlatformBigTableClustersModeled",
-        "zGoogleCloudPlatformBigTableInstancesModeled",
-        "zGoogleCloudPlatformBigTableAppProfilesModeled",
-        "zGoogleCloudPlatformBigTableTablesModeled",
-        "zGoogleCloudPlatformDiscoverGuests",
-        "zGoogleCloudPlatformGuestLabels",
     )
 
     deviceProperties = (
@@ -88,7 +60,7 @@ class Extensions(Project):
             return
 
         log.info(
-            "%s: collecting data from Google Cloud Platform APIs",
+            "%s: collecting data from Google Cloud Platform APIs (CloudSQL)",
             device.id)
 
         collector = modeling.CollectorExt(device)

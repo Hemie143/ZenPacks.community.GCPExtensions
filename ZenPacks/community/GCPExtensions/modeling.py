@@ -1,13 +1,3 @@
-##############################################################################
-#
-# Copyright (C) Zenoss, Inc. 2018-2019, all rights reserved.
-#
-# This content is made available according to terms specified in
-# License.zenoss under the directory where your Zenoss product is installed.
-#
-##############################################################################
-
-"""Compute service modeling."""
 
 # Default Exports
 __all__ = [
@@ -28,36 +18,8 @@ from . import txgcp
 
 LOG = logging.getLogger("zen.GCPExtensions")
 
-DEFAULT_MODELED_KINDS = (
-    "compute#disk",
-    "compute#diskType",
-    "compute#image",
-    "compute#instance",
-    "compute#instanceGroup",
-    "compute#instanceGroupManager",
-    "compute#instanceTemplate",
-    "compute#machineType",
-    "compute#project",
-    "compute#region",
-    "compute#snapshot",
-    "compute#zone",
-)
-
-DEFAULT_AGGREGATED_KINDS = (
-    # "compute#disk",
-    # "compute#diskType",
-    # "compute#instance",
-    # "compute#instanceGroup",
-    # "compute#machineType",
-)
-
-
 # Static keyword identifying the project (device) being modeled.
 PROJECT_ID = "#PROJECT#"
-
-# For unit translation.
-ONE_GiB = 1073741824
-ONE_MiB = 1048576
 
 
 class CollectorExt(Collector):
@@ -117,8 +79,6 @@ class CollectorExt(Collector):
             # Propagate any other failures.
             return failure
 
-        LOG.debug('XXX collect_cloudsql_databases')
-
         d = self.client.cloudsql(project_name).databases(instance)
         d.addCallback(handle_success)
         d.addErrback(handle_failure)
@@ -137,8 +97,6 @@ class CollectorExt(Collector):
             # Propagate any other failures.
             return failure
 
-        LOG.debug('XXXXXXXXXXXXXXXXXX collect_subscriptions')
-
         d = self.client.subscriptions(project_name).instances()
         d.addCallback(handle_success)
         d.addErrback(handle_failure)
@@ -146,7 +104,6 @@ class CollectorExt(Collector):
 
     def handle_result(self, result):
         """Dispatch result to appropriate handle_* method."""
-
         if not result:
             return {}
         self.results.append(result)
@@ -156,9 +113,6 @@ class CollectorExt(Collector):
         if kind:
             compute_kind = kind.split("#", 1)[-1]
             handle_fn = getattr(self, "handle_{}".format(compute_kind), None)
-
-        elif result.get('instances'):
-            handle_fn = getattr(self, "handle_bigTableInstance", None)
         elif result.get('items') and result.get('items')[0].get('kind') == 'sql#instance':
             handle_fn = getattr(self, "handle_cloudSQLInstances", None)
 
@@ -169,8 +123,6 @@ class CollectorExt(Collector):
         return result
 
     def handle_cloudSQLInstances(self, result):
-
-        LOG.debug('XXX handle_cloudSQLInstances')
         # project_name = result.get('instances')[0].get("name").split("/")[1]
         model_regex = ".*"
         '''
@@ -192,65 +144,17 @@ def process(device, results, plugin_name):
     mapper = DataMapper(plugin_name)
 
     for result in results:
-
         # GCE results will have a "kind" key.
         if "kind" in result:
-
-            LOG.debug ('XXX process : kind')
-
             map_fn_name = "map_{}".format(
                 result["kind"].split('#', 1)[-1])
             map_fn = globals().get(map_fn_name)
             if not map_fn:
                 raise Exception("no {} function".format(map_fn_name))
 
-            LOG.debug('XXX process map_fn: {}'.format(map_fn))
-
             map_result = map_fn(device, result)
             if map_result:
                 mapper.update(map_result)
-
-        # GKE results will have a "clusters" key.
-        # Bigtable clusters also use cluster key
-        elif "clusters" in result:
-            clustlist = result.get('clusters')
-            if clustlist and clustlist[0].get('selfLink'):
-                kubernetes_map_result = map_kubernetesClusterList(device, result)
-                if kubernetes_map_result:
-                    mapper.update(kubernetes_map_result)
-            else:
-                bigTableCluster_map_result = map_bigTableClusterList(device, result)
-                if bigTableCluster_map_result:
-                    mapper.update(bigTableCluster_map_result)
-        # Process GoogleCloudFunctions here.
-        elif "functions" in result:
-            functions_map_result = map_gcpFunctionList(device, result)
-            if functions_map_result:
-                mapper.update(functions_map_result)
-
-        # Dataflow jobs will have "jobs" key.
-        elif "jobs" in result:
-            dataflow_map_result = map_dataflowJobsList(device, result)
-            if dataflow_map_result:
-                mapper.update(dataflow_map_result)
-
-        # BigTable instances will have "instances" key.
-        elif "instances" in result:
-            bigTableInstance_map_result = map_bigTableInstanceList(device, result)
-            if bigTableInstance_map_result:
-                mapper.update(bigTableInstance_map_result)
-
-        # BigTable appProfiles will have "appProfiles" key.
-        elif "appProfiles" in result:
-            bigTableAppProfile_map_result = map_bigTableAppProfilesList(device, result)
-            if bigTableAppProfile_map_result:
-                mapper.update(bigTableAppProfile_map_result)
-
-        # BigTable Tables will have "tables" key.
-        elif "tables" in result:
-            bigTableTable_map_result = map_bigTableTablesList(device, result)
-            if bigTableTable_map_result:
-                mapper.update(bigTableTable_map_result)
 
         # Cloud SQL instances will have "items" key.
         elif "items" in result:
@@ -263,80 +167,15 @@ def process(device, results, plugin_name):
 
 # Mapping Functions ###################################################
 def map_project(device, result):
-    """Return data given compute#project result.
-
-    Example compute#project result:
-
-        {u'commonInstanceMetadata': {u'fingerprint': u'eSm54VHwyRw=',
-                                     u'items': [{u'key': u'ssh-keys',
-                                                 u'value': u'blah blah blah'}],
-                                     u'kind': u'compute#metadata'},
-         u'creationTimestamp': u'2018-03-30T12:47:20.427-07:00',
-         u'defaultServiceAccount': u'469482109134-compute@developer.gserviceaccount.com',
-         u'id': u'217208988139465383',
-         u'kind': u'compute#project',
-         u'name': u'zenoss-testing-1',
-         u'quotas': [{u'limit': 25000.0, u'metric': u'SNAPSHOTS', u'usage': 1.0}],
-         u'selfLink': u'https://www.googleapis.com/compute/v1/projects/zenoss-testing-1',
-         u'xpnProjectStatus': u'UNSPECIFIED_XPN_PROJECT_STATUS'}
-
-    """
     data = {
         PROJECT_ID: {
             "type": "ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice",
             "properties": {
-                # ComputeKind properties.
-                "gce_name": result.get("name"),
-                "gce_creationTimestamp": result.get("creationTimestamp"),
-                "gce_kind": result.get("kind"),
-                "gce_id": result.get("id"),
-                "gce_selfLink": result.get("selfLink"),
-
-                # ProjectDevice properties.
-                "defaultServiceAccount": result.get("defaultServiceAccount"),
-                "xpnProjectStatus": result.get("xpnProjectStatus"),
             },
             "links": {
-                # ProjectDevice links.
-                "images": [],
-                "instanceTemplates": [],
-                "regions": [],
-                "snapshots": [],
-                "zones": [],
-                "dataflowJobs": [],
-                "buckets": [],
-                "bigTableInstances": [],
-                # ComputeQuotaContainer links.
-                "quotas": [],
             },
         },
     }
-
-    '''
-    for quota_item in result.get("quotas", ()):
-        metric = quota_item.get("metric")
-        if not metric:
-            continue
-
-        # No reason to model quotas with a limit of 0.
-        limit = quota_item.get("limit")
-        if limit == 0:
-            continue
-
-        quota_id = "quota_project_{}".format(metric.lower())
-
-        data[quota_id] = {
-            "type": "ZenPacks.zenoss.GoogleCloudPlatform.ComputeQuota",
-            "title": "project / {}".format(metric),
-            "properties": {
-                "metric": metric,
-                "limit_modeled": limit,
-            },
-            "links": {
-                "container": PROJECT_ID,
-            }
-        }
-    '''
     return data
 
 
@@ -344,7 +183,6 @@ def map_cloudSQLInstancesList(device, result):
     """Return data given CloudSQL instance list.
 
     Example result:
-
     {
       u'items': [
         {
@@ -406,10 +244,10 @@ def map_cloudSQLInstancesList(device, result):
               u'authorizedNetworks': [
                 
               ],
-              u'privateNetwork': u'projects/fednot-sharedvpc-acc/global/networks/fednot-sharedvpc-acc'
+              u'privateNetwork': u'projects/acme-sharedvpc-acc/global/networks/acme-sharedvpc-acc'
             },
             u'userLabels': {
-              u'name': u'sql-izimi-acc'
+              u'name': u'sql-svc-acc'
             },
             u'pricingPlan': u'PER_USE',
             u'replicationType': u'SYNCHRONOUS',
@@ -429,13 +267,13 @@ def map_cloudSQLInstancesList(device, result):
             u'kind': u'sql#sslCert',
             u'sha1Fingerprint': u'adcb02902342cec8c20fb60dcd656b6dc755f654',
             u'commonName': u'C=US,O=Google\\, Inc,CN=Google Cloud SQL Server CA,dnQualifier=5be3d212-05c2-4ace-9d48-2f56ad2acddd',
-            u'instance': u'sql-izimi-acc-8170413f',
+            u'instance': u'sql-svc-acc-8170413f',
             u'cert': u'-----BEGIN CERTIFICATE-----\nMIIDfzCCAmegAwIBAgIBADANBgkqhkiG9w0BAQsFADB3MS0wKwYDVQQuEyQ1YmUz\nZDIxMi0wNWMyLTRhY2UtOWQ0OC0yZjU2YWQyYWNkZGQxIzAhBgNVBAMTGkdvb2ds\nZSBDbG91ZCBTUUwgU2VydmVyIENBMRQwEgYDVQQKEwtHb29nbGUsIEluYzELMAkG\nA1UEBhMCVVMwHhcNMjAwOTE2MDY1NzUxWhcNMzAwOTE0MDY1ODUxWjB3MS0wKwYD\nVQQuEyQ1YmUzZDIxMi0wNWMyLTRhY2UtOWQ0OC0yZjU2YWQyYWNkZGQxIzAhBgNV\nBAMTGkdvb2dsZSBDbG91ZCBTUUwgU2VydmVyIENBMRQwEgYDVQQKEwtHb29nbGUs\nIEluYzELMAkGA1UEBhMCVVMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB\nAQClBEBfB2MeCFz8g2KKknrFbgVXcUTAd6GqzA97mYzERB++wVjamQ8I+bE73AtH\nyiWg9AVnn49eVEvQPN2JioDmqQ9V/DYYdDKoKEAs/NwVIencajddBaB0aZiX1XFW\nJkWFQ3jJNLjl8f1+SbGs/6Bx7ARgZpb9En2x31a+I3pFWgSwBs19lqhFSEPHq6Wt\nZmceo+mhYvfv3e1xt72shp+106HZ3wtZrdFi/y4uAJsVTErz52fOSKAsLSWML6Cg\nAbZ/xiT9Xe+L08UFo797sl+YmO5Mdt3O3Tf7Dq/hNcFNVoRsSRb0U+S//3Z/SEkT\nZf9ZdOmB9TvO1L5m5v5sKeEhAgMBAAGjFjAUMBIGA1UdEwEB/wQIMAYBAf8CAQAw\nDQYJKoZIhvcNAQELBQADggEBAKII4qbkbqAb3cwajkt9V8SmBJUVgrjiLwUJYn1x\npP8pUErChDqlNNv7WaaR0mPeLqARUE+NKcLBnYV7XzMJ92SQZ8HUs3o+Ig9xCGyJ\nFTqo870vEOwRtA9z0YXFwtLs+lGzyLTwgG3XJ2vH39GB7RXw9h4IeVKu4wWJ4X1t\nPbrTogtLyEPt/AjxnJZhvSpoe0L+tH2ET1uRD8Z6nHDoSKFxeKsKE/4Yf8H4CvtI\nvFBvFcHWnAp9Kd0vGP6MsSifUZDqqLyu68EzPee3k7YWD53eLEdxTu47vD37XJ08\nYjqEgyo2xFnZvwrhLHdhoF4x7d6Nu26bfFxMMjADNoLDYV8=\n-----END CERTIFICATE-----',
             u'expirationTime': u'2030-09-14T06:58:51.719Z',
             u'createTime': u'2020-09-16T06:57:51.719Z'
           },
           u'gceZone': u'europe-west1-b',
-          u'project': u'fednot-acc-certinot',
+          u'project': u'acme-acc-myapp',
           u'state': u'RUNNABLE',
           u'etag': u'48a7c5bb67d1cec2901bd3872196a97d9ec5b2852bb18aab8db2f45760f04327',
           u'serviceAccountEmailAddress': u'p544053300745-na7gqs@gcp-sa-cloud-sql.iam.gserviceaccount.com',
@@ -445,22 +283,17 @@ def map_cloudSQLInstancesList(device, result):
               u'type': u'PRIVATE'
             }
           ],
-          u'connectionName': u'fednot-acc-certinot:europe-west1:sql-izimi-acc-8170413f',
+          u'connectionName': u'acme-acc-myapp:europe-west1:sql-svc-acc-8170413f',
           u'databaseVersion': u'POSTGRES_11',
           u'instanceType': u'CLOUD_SQL_INSTANCE',
-          u'selfLink': u'https://sqladmin.googleapis.com/sql/v1beta4/projects/fednot-acc-certinot/instances/sql-izimi-acc-8170413f',
-          u'name': u'sql-izimi-acc-8170413f'
+          u'selfLink': u'https://sqladmin.googleapis.com/sql/v1beta4/projects/acme-acc-myapp/instances/sql-svc-acc-8170413f',
+          u'name': u'sql-svc-acc-8170413f'
         }
       ]
     }
     """
     data = {}
     for instance in result.get("items"):
-
-        # LOG.debug('DDDD map_cloudSQLInstancesList instance: {}'.format(instance))
-        # LOG.debug('DDDD map_cloudSQLInstancesList selfLink: {}'.format(instance["selfLink"]))
-        # LOG.debug('DDDD map_cloudSQLInstancesList get_id: {}'.format(get_id(instance["selfLink"])))
-
         zone = instance.get("gceZone")
         projectName = instance.get("project")
         gke_name = instance.get("name")
@@ -491,66 +324,6 @@ def map_cloudSQLInstancesList(device, result):
             }
         })
 
-        '''
-                    "gke_name": instance.get("name"),
-                    "backendType": instance.get("backendType"),
-                    "gceZone": instance.get("gceZone"),
-                    "secondaryGceZone": instance.get("secondaryGceZone"),
-                    "region": instance.get("region"),
-                    "project": instance.get("project"),
-                    "ipAddress": instance.get("ipAddresses")[0].get("ipAddress"),
-                    "connectionName": instance.get("connectionName"),
-                    "databaseVersion": instance.get("databaseVersion"),
-        
-        '''
-
-
-        '''
-        # While in clusters loop: Add the KubernetesNodePools.
-        for nodePool in cluster.get("nodePools", ()):
-            data.update({
-                get_id(nodePool["selfLink"]): {
-                    "title": "{zone} / {cluster} / {name}".format(
-                        zone=nodePool["selfLink"].split("/")[-5],
-                        cluster=nodePool["selfLink"].split("/")[-3],
-                        name=nodePool["name"]),
-                    "type": "ZenPacks.zenoss.GoogleCloudPlatform.KubernetesNodePool",
-                    "properties": {
-                        "gke_name": nodePool.get("name"),
-                        "version": nodePool.get("version"),
-                        "initialNodeCount": maybe_int(nodePool.get("initialNodeCount")),
-                        "nodeDiskSize": (maybe_int(nodePool["config"].get("diskSizeGb")) or 0) * ONE_GiB,
-                        "nodeImageType": nodePool["config"].get("imageType"),
-                        "nodeServiceAccount": nodePool["config"].get("serviceAccount"),
-                        "nodeMachineType": nodePool["config"].get("machineType"),
-                        "selfLink": nodePool.get("selfLink"),
-                    },
-                    "links": {
-                        "instanceGroups": [
-                            get_id(x).replace("GroupManager", "Group")
-                            for x in nodePool.get("instanceGroupUrls")],
-                    }
-                }
-            })
-            '''
-
-    # 'ZenPacks.zenoss.GoogleCloudPlatform.KubernetesCluster'
-    '''
-    data = {
-        'test': {
-            'type': 'ZenPacks.community.GCPExtensions.CloudSQLInstance',
-            'properties': {
-            },
-            'links': {
-                'project': '#PROJECT#',
-            },
-            'title': 'test'
-        }
-    }
-    '''
-
-    LOG.debug('map_cloudSQLInstancesList data: {}'.format(data))
-
     return data
 
 
@@ -563,55 +336,48 @@ def map_databasesList(device, result):
           u'kind': u'sql#database',
           u'name': u'postgres',
           u'charset': u'UTF8',
-          u'project': u'fednot-acc-certinot',
-          u'instance': u'sql-izimi-acc-8170413f',
+          u'project': u'acme-acc-myapp',
+          u'instance': u'sql-svc-acc-8170413f',
           u'etag': u'5abc962b2fa8fcbeff62c5b6679c301e12a56afe63159b67e9cce950e222444c',
           u'collation': u'en_US.UTF8',
-          u'selfLink': u'https://sqladmin.googleapis.com/sql/v1beta4/projects/fednot-acc-certinot/instances/sql-izimi-acc-8170413f/databases/postgres'
+          u'selfLink': u'https://sqladmin.googleapis.com/sql/v1beta4/projects/acme-acc-myapp/instances/sql-svc-acc-8170413f/databases/postgres'
         },
         {
           u'kind': u'sql#database',
-          u'name': u'izimi-acc',
+          u'name': u'svc-acc',
           u'charset': u'UTF8',
-          u'project': u'fednot-acc-certinot',
-          u'instance': u'sql-izimi-acc-8170413f',
+          u'project': u'acme-acc-myapp',
+          u'instance': u'sql-svc-acc-8170413f',
           u'etag': u'c6c7febfc6a50bc2b8f9846c6bba89be49524c0a33744cf7312af4c1f5d750be',
           u'collation': u'en_US.UTF8',
-          u'selfLink': u'https://sqladmin.googleapis.com/sql/v1beta4/projects/fednot-acc-certinot/instances/sql-izimi-acc-8170413f/databases/izimi-acc'
+          u'selfLink': u'https://sqladmin.googleapis.com/sql/v1beta4/projects/acme-acc-myapp/instances/sql-svc-acc-8170413f/databases/svc-acc'
         },
         {
           u'kind': u'sql#database',
-          u'name': u'izimi-eventlog-acc',
+          u'name': u'svc-eventlog-acc',
           u'charset': u'UTF8',
-          u'project': u'fednot-acc-certinot',
-          u'instance': u'sql-izimi-acc-8170413f',
+          u'project': u'acme-acc-myapp',
+          u'instance': u'sql-svc-acc-8170413f',
           u'etag': u'cb156511e0455ab150e29812e7daa4c2fe095c969c4fc02891fb58c6259353f6',
           u'collation': u'en_US.UTF8',
-          u'selfLink': u'https://sqladmin.googleapis.com/sql/v1beta4/projects/fednot-acc-certinot/instances/sql-izimi-acc-8170413f/databases/izimi-eventlog-acc'
+          u'selfLink': u'https://sqladmin.googleapis.com/sql/v1beta4/projects/acme-acc-myapp/instances/sql-svc-acc-8170413f/databases/svc-eventlog-acc'
         },
         {
           u'kind': u'sql#database',
-          u'name': u'izimi-keycloak-acc',
+          u'name': u'svc-keycloak-acc',
           u'charset': u'UTF8',
-          u'project': u'fednot-acc-certinot',
-          u'instance': u'sql-izimi-acc-8170413f',
+          u'project': u'acme-acc-myapp',
+          u'instance': u'sql-svc-acc-8170413f',
           u'etag': u'cbfaa79bfbff00bbad35803b448715cc28586dcde38f0859cf45cb4a462201ff',
           u'collation': u'en_US.UTF8',
-          u'selfLink': u'https://sqladmin.googleapis.com/sql/v1beta4/projects/fednot-acc-certinot/instances/sql-izimi-acc-8170413f/databases/izimi-keycloak-acc'
+          u'selfLink': u'https://sqladmin.googleapis.com/sql/v1beta4/projects/acme-acc-myapp/instances/sql-svc-acc-8170413f/databases/svc-keycloak-acc'
         }
       ],
       u'kind': u'sql#databasesList'
     }
     """
     data = {}
-
-    LOG.debug('OOOOOOOOOO map_databasesList: {}'.format(result))
     for instance in result.get("items"):
-
-        # LOG.debug('DDDD map_cloudSQLInstancesList instance: {}'.format(instance))
-        # LOG.debug('DDDD map_cloudSQLInstancesList selfLink: {}'.format(instance["selfLink"]))
-        # LOG.debug('DDDD map_cloudSQLInstancesList get_id: {}'.format(get_id(instance["selfLink"])))
-
         data.update({
             get_id(instance["selfLink"]): {
                 "title": "{} / {}".format(
@@ -630,6 +396,5 @@ def map_databasesList(device, result):
         }
             }
         })
-
 
     return data
