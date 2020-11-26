@@ -12,7 +12,6 @@
 # Default Exports
 __all__ = [
     "CollectorExt",
-    # "CollectorOptions",
     "process",
 ]
 
@@ -20,37 +19,12 @@ __all__ = [
 import logging
 import re
 
-from datetime import datetime
-
-# Twisted Imports
-from twisted.internet import defer
-from twisted.python.failure import Failure as TxFailure
-
 # ZenPack Imports
-from ZenPacks.zenoss.GoogleCloudPlatform.constants import (
-    KIND_MAP,
-    PROJECT_KINDS,
-    PROJECT_GLOBAL_KINDS,
-    PROJECT_AGGREGATED_KINDS,
-    REGION_KINDS,
-    ZONE_KINDS,
-)
-from ZenPacks.zenoss.GoogleCloudPlatform.modeling import validate_modeling_regex, CollectorOptions, Collector
-
-
 from Products.ZenUtils.Utils import prepId
-
-from . import txgcp
-# from .mapper import DataMapper
+from ZenPacks.zenoss.GoogleCloudPlatform.modeling import validate_modeling_regex, CollectorOptions, Collector
 from ZenPacks.zenoss.GoogleCloudPlatform.mapper import DataMapper
-from ZenPacks.zenoss.GoogleCloudPlatform.utils import (maybe_int,
-                                                       is_greater_timestamp,
-                                                       find_first_shared_label,
-                                                       guest_status_prodState_map,
-                                                       getLabelToDeviceClassMap)
-# from .zopeutils import get_id
 from ZenPacks.zenoss.GoogleCloudPlatform.zopeutils import get_id
-from ZenPacks.zenoss.GoogleCloudPlatform.labels import labels_list
+from . import txgcp
 
 LOG = logging.getLogger("zen.GCPExtensions")
 
@@ -85,86 +59,6 @@ PROJECT_ID = "#PROJECT#"
 ONE_GiB = 1073741824
 ONE_MiB = 1048576
 
-'''
-def validate_modeling_regex(device, zprop):
-    """ Validate zProp Regex list and return valid composite regex or None
-
-    Params:
-        device: device object
-        zprop:  A zProperty string, representing a 'lines' type property
-
-    Returns:
-        A valid composite regular expression, or None
-    """
-    ModelZpropList = getattr(device, zprop, [])
-    if not ModelZpropList:
-        return None
-
-    # Validate each regex in list
-    model_list = []
-    for item in ModelZpropList:
-        name = item.strip()
-        # Ignore line with newline and empty spaces characters
-        if not name:
-            continue
-        try:
-            re.compile(name)
-            model_list.append(name)
-        except Exception:
-            LOG.warn('Ignoring "%s" in %s. Invalid Regular Expression.',
-                     name, zprop)
-
-    # Its possible that there were no valid regular expressions in model_list.
-    if not model_list:
-        return None
-
-    regex = re.compile('(?:{})'.format('|'.join(model_list)))
-    return regex
-'''
-
-'''
-class CollectorOptions(object):
-    def __init__(
-            self,
-            modeled_kinds=DEFAULT_MODELED_KINDS,
-            aggregated_kinds=DEFAULT_AGGREGATED_KINDS):
-        self.modeled_kinds = modeled_kinds
-        self.aggregated_kinds = aggregated_kinds
-
-    def is_kind_modeled(self, kind):
-        """Return True if "kind" should be modeled."""
-        return kind in self.modeled_kinds
-
-    def get_modeled_kinds(self, source):
-        """Return tuple of kinds to be modeled."""
-        return tuple(x for x in source if self.is_kind_modeled(x))
-
-    def project_kinds(self):
-        """Return tuple of kinds to be modeled per project."""
-        return self.get_modeled_kinds(PROJECT_KINDS)
-
-    def project_global_kinds(self):
-        """Return tuple of global kinds to be modeled per project."""
-        return self.get_modeled_kinds(PROJECT_GLOBAL_KINDS)
-
-    def project_aggregated_kinds(self):
-        """Return tuple of aggregated kinds to be modeled per project."""
-        return tuple(
-            x
-            for x in self.get_modeled_kinds(PROJECT_AGGREGATED_KINDS)
-            if x in self.aggregated_kinds)
-
-    def region_kinds(self):
-        """Return tuple of kinds to be modeled per region."""
-        return self.get_modeled_kinds(REGION_KINDS)
-
-    def zone_kinds(self):
-        """Return tuple of kinds to be modeled per zone."""
-        return tuple(
-            x
-            for x in self.get_modeled_kinds(ZONE_KINDS)
-            if x not in self.project_aggregated_kinds())
-'''
 
 class CollectorExt(Collector):
     def __init__(self, device, testing=False, save_responses=False):
@@ -187,91 +81,9 @@ class CollectorExt(Collector):
         # Get singular project details.
         self.operations.append((project.get, ()))
 
-        '''
-        # Get top-level collections without a namespace.
-        self.operations.extend(
-            (project.list, (KIND_MAP[x],))
-            for x in self.options.project_kinds())
-        '''
-
-
         self.operations.append((
             self.collect_cloudsql_instances,
             (project_name,)))
-
-
-        '''
-        self.operations.append((
-            self.collect_subscriptions,
-            (project_name,)))
-        '''
-
-        '''
-        # Get top-level collections with the global namespace.
-        self.operations.extend(
-            (project.global_list, (KIND_MAP[x],))
-            for x in self.options.project_global_kinds())
-
-        # Get top-level collections with the aggregated namespace.
-        self.operations.extend(
-            (project.aggregated_list, (KIND_MAP[x],))
-            for x in self.options.project_aggregated_kinds())
-        '''
-
-        '''
-        # Make call to Stackdriver and get list of K8 instance_ids..
-        self.operations.append((
-            self.collect_kubernetes_clusters,
-            (project_name,)))
-        '''
-
-        ''' 
-        # Make call to GCP Functions
-        self.operations.append((
-            self.collect_gcp_functions,
-            (project_name,)))
-
-        self.operations.append((
-            self.collect_dataflow_jobs,
-            (project_name,)))
-
-        # Validate regex for BigQuery zProperty before collecting data
-        if validate_modeling_regex(
-                self.device, 'zGoogleCloudPlatformBigQueryDatasetsModeled'):
-            self.operations.append((
-                self.collect_bigquery_datasets,
-                (project_name,)))
-
-        self.operations.append((
-            self.collect_autoscalars,
-            (project_name,)))
-
-        self.operations.append((
-            self.collect_buckets,
-            (project_name,)))
-
-        # Validate regex for BigTable zProperty before collecting data
-        if validate_modeling_regex(
-                self.device, 'zGoogleCloudPlatformBigTableInstancesModeled'):
-            self.operations.append((
-                self.collect_bigtable_instances,
-                (project_name,)))
-
-        # Validate regex for BigTable zProperty before collecting data
-        if validate_modeling_regex(
-                self.device, 'zGoogleCloudPlatformBigTableClustersModeled'):
-            self.operations.append((
-                self.collect_bigtable_clusters,
-                (project_name,)))
-
-
-        # Validate regex for BigTable zProperty before collecting data
-        if validate_modeling_regex(
-                self.device, 'zGoogleCloudPlatformBigTableAppProfilesModeled'):
-            self.operations.append((
-                self.collect_bigtable_appProfiles,
-                (project_name,)))
-        '''
 
         return self.collect_phase([], 1)
 
@@ -332,64 +144,6 @@ class CollectorExt(Collector):
         d.addErrback(handle_failure)
         return d
 
-    '''
-    def collect_phase(self, results, phase):
-        total_results = len(results)
-        success_results = len([x for x in results if x[0]])
-        fail_results = len([x for x in results if not x[0]])
-
-        if phase > 1:
-            LOG.debug(
-                "received %s responses for phase %s [success=%s, fail=%s]",
-                total_results,
-                phase - 1,
-                success_results,
-                fail_results)
-
-        for success, result in results:
-            if not success:
-                LOG.debug("failure: %s", result)
-                return defer.succeed(None)
-
-        if not self.operations:
-            LOG.debug("completed all phases")
-            return defer.succeed(self.results)
-
-        LOG.debug(
-            "sending %s requests for phase %s",
-            len(self.operations),
-            phase)
-
-        # Create deferreds out of operations in this phase.
-        deferreds = [
-            fn(*args).addCallback(self.handle_result)
-            for fn, args in self.operations]
-
-        # Clear operations for next phase.
-        self.operations = []
-
-        # Phase only completes when all deferreds succeed, or one fails.
-        d = defer.DeferredList(
-            deferreds,
-            consumeErrors=True,
-            fireOnOneErrback=True).addCallback(
-                self.collect_phase,
-                phase + 1)
-
-        d.addErrback(self.handle_failure)
-
-        return d
-    '''
-    '''
-    def handle_failure(self, failure):
-        # Unwrap "FirstError" from DeferredList failure.
-        if isinstance(failure, TxFailure):
-            if isinstance(failure.value, defer.FirstError):
-                return failure.value.subFailure
-
-        return failure
-    '''
-
     def handle_result(self, result):
         """Dispatch result to appropriate handle_* method."""
 
@@ -441,7 +195,6 @@ def process(device, results, plugin_name):
 
         # GCE results will have a "kind" key.
         if "kind" in result:
-
 
             LOG.debug ('XXX process : kind')
 
@@ -506,65 +259,9 @@ def process(device, results, plugin_name):
                 if cloudSQLInstance_map_result:
                     mapper.update(cloudSQLInstance_map_result)
 
-    '''
-    # Prevent modeling of zones with no instances.
-    zone_type = "ZenPacks.zenoss.GoogleCloudPlatform.ComputeZone"
-    for zone_id, zone_datum in mapper.by_type(zone_type):
-        if not zone_datum["links"].get("instances"):
-            mapper.remove(zone_id)
-
-    # Prevent modeling of regions with no zones.
-    region_type = "ZenPacks.zenoss.GoogleCloudPlatform.ComputeRegion"
-    for region_id, region_datum in mapper.by_type(region_type):
-        if not region_datum["links"].get("zones"):
-            mapper.remove(region_id)
-
-    # Prevent modeling of images with no disks.
-    image_type = "ZenPacks.zenoss.GoogleCloudPlatform.ComputeImage"
-    for image_id, image_datum in mapper.by_type(image_type):
-        if not image_datum["links"].get("disks"):
-            mapper.remove(image_id)
-
-    # Prevent modeling of instanceGroups with no instances..
-    instanceGroup_type = "ZenPacks.zenoss.GoogleCloudPlatform.ComputeInstanceGroup"
-    for instanceGroup_id, instanceGroup_datum in mapper.by_type(instanceGroup_type):
-        if not instanceGroup_datum["links"].get("instances2"):
-            mapper.remove(instanceGroup_id)
-
-    # Prevent modeling of unused instanceTemplates.
-    instanceTemplate_type = "ZenPacks.zenoss.GoogleCloudPlatform.ComputeInstanceTemplate"
-    for instanceTemplate_id, instanceTemplate_datum in mapper.by_type(instanceTemplate_type):
-        instanceTemplate_used = any((
-            instanceTemplate_datum["links"].get("instances"),
-            instanceTemplate_datum["links"].get("instanceGroups")))
-
-        if not instanceTemplate_used:
-            mapper.remove(instanceTemplate_id)
-
-    # Prevent modeling of machineTypes with no instances.
-    machineType_type = "ZenPacks.zenoss.GoogleCloudPlatform.ComputeMachineType"
-    for machineType_id, machineType_datum in mapper.by_type(machineType_type):
-        if not machineType_datum["links"].get("instances"):
-            mapper.remove(machineType_id)
-
-    # Prevent modeling of disks attached to no instances.
-    disk_type = "ZenPacks.zenoss.GoogleCloudPlatform.ComputeDisk"
-    for disk_id, disk_datum in mapper.by_type(disk_type):
-        if not disk_datum["links"].get("instances"):
-            mapper.remove(disk_id)
-
-    # Prevent modeling of diskTypes with no disks.
-    diskType_type = "ZenPacks.zenoss.GoogleCloudPlatform.ComputeDiskType"
-    for diskType_id, diskType_datum in mapper.by_type(diskType_type):
-        if not diskType_datum["links"].get("disks"):
-            mapper.remove(diskType_id)
-    '''
-
     return mapper.get_full_datamaps()
 
-
 # Mapping Functions ###################################################
-
 def map_project(device, result):
     """Return data given compute#project result.
 
