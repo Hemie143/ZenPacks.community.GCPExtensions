@@ -52,7 +52,7 @@ from ZenPacks.zenoss.GoogleCloudPlatform.utils import (maybe_int,
 from ZenPacks.zenoss.GoogleCloudPlatform.zopeutils import get_id
 from ZenPacks.zenoss.GoogleCloudPlatform.labels import labels_list
 
-LOG = logging.getLogger("zen.GoogleCloudPlatform")
+LOG = logging.getLogger("zen.GCPExtensions")
 
 DEFAULT_MODELED_KINDS = (
     "compute#disk",
