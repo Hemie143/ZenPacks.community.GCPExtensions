@@ -12,8 +12,6 @@ classes:
     base: [zenpacklib.Component]
     label: CloudSQL Instance
     properties:
-      DEFAULTS:
-        grid_display: false
       gke_name:
         label: GKE NAME
         grid_display: false
@@ -32,6 +30,20 @@ classes:
       projectName:
         label: Project
         grid_display: false
+      status:
+        label: Status
+        grid_display: true
+        label_width: 35
+        content_width: 60
+        datapoint: status_status
+        enum:
+          1: RUNNING
+          2: SUSPENDED
+          3: RUNNABLE
+          4: PENDING_CREATE
+          5: MAINTENANCE
+          6: FAILED
+          7: UNKNOWN_STATE
       ipAddress:
         label: IP Address
         grid_display: true
