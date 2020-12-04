@@ -353,7 +353,6 @@ def map_cloudSQLInstancesList(device, result):
         projectName = instance.get("project")
         gke_name = instance.get("name")
         database_id = '{}:{}'.format(projectName, gke_name)
-        # LOG.debug('map_cloudSQLInstancesList selfLink: {}'.format(instance["selfLink"]))
         data.update({
             get_id(instance["selfLink"]): {
                 "title": "{} / {}".format(
@@ -431,23 +430,26 @@ def map_databasesList(device, result):
     }
     """
     data = {}
+    model_regex = validate_modeling_regex(device, 'zGoogleCloudPlatformDatabasesModeled')
     for instance in result.get("items"):
+        name = "{} / {}".format(instance["instance"], instance["name"])
+        shortname = instance.get("name")
+        if not re.match(model_regex, shortname):
+            continue
         data.update({
             get_id(instance["selfLink"]): {
-                "title": "{} / {}".format(
-                    instance["instance"],
-                    instance["name"]),
+                "title": name,
                 "type": "ZenPacks.community.GCPExtensions.CloudSQLDatabase",
                 "properties": {
                     "charset": instance.get("charset"),
                     "etag": instance.get("etag"),
                     "collation": instance.get("collation"),
                     "selfLink": instance.get("selfLink"),
-                    "shortname": instance.get("name"),
-        },
+                    "shortname": shortname,
+                    },
                 "links": {
                     "cloudSQLInstance": "instance_{}_{}".format(instance["project"], instance["instance"]),
-        }
+                    }
             }
         })
 
@@ -508,18 +510,6 @@ def map_pubSubTopicsList(device, result):
     data = {}
     for topic in result.get("topics"):
         label = topic["labels"]["name"]
-        '''
-        data.update({
-            get_id(label): {
-                "title": label,
-                "type": "ZenPacks.community.GCPExtensions.PubSubTopic",
-                "properties": {},
-                "links": {
-                    "project": PROJECT_ID,
-                }
-            }
-        })
-        '''
         data.update({
             prepId(label): {
                 "title": label,
@@ -543,11 +533,13 @@ def map_pubSubSubscriptionsList(device, result):
         ]
       }
     """
-    LOG.debug('XXX map_pubSubSubscriptionsList')
     data = {}
+    model_regex = validate_modeling_regex(device, 'zGoogleCloudPlatformSubscriptionsModeled')
     for sub in result.get("subscriptions"):
         sub_name = sub["name"]
         sub_shortname = sub_name.split("/")[-1]
+        if not re.match(model_regex, sub_shortname):
+            continue
         topic = sub["topic"]
         topic_id = topic.split("/")[-1]
         data.update({
@@ -555,6 +547,12 @@ def map_pubSubSubscriptionsList(device, result):
                 "title": sub_shortname,
                 "type": "ZenPacks.community.GCPExtensions.PubSubSubscription",
                 "properties": {
+                    "messageRetentionDuration": sub["messageRetentionDuration"],
+                    "deadLetterTopic": sub["deadLetterPolicy"]["deadLetterTopic"],
+                    "expirationPolicyTTL": sub["expirationPolicy"]["ttl"],
+                    "retryPolicymaximumBackoff": sub["retryPolicy"]["maximumBackoff"],
+                    "retryPolicyminimumBackoff": sub["retryPolicy"]["minimumBackoff"],
+                    "ackDeadlineSeconds": sub["ackDeadlineSeconds"],
                     },
                 "links": {
                     "pubSubTopic": prepId(topic_id),

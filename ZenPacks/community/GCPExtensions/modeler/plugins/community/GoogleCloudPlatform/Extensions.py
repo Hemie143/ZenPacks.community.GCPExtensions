@@ -25,6 +25,8 @@ class Extensions(Project):
         "zGoogleCloudPlatformClientEmail",
         "zGoogleCloudPlatformPrivateKey",
         "zGoogleCloudPlatformComputeMaxResults",
+        "zGoogleCloudPlatformDatabasesModeled",
+        "zGoogleCloudPlatformSubscriptionsModeled",
     )
 
     deviceProperties = (

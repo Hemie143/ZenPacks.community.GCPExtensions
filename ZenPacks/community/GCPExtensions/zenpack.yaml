@@ -1,5 +1,15 @@
 name: ZenPacks.community.GCPExtensions
 
+zProperties:
+  DEFAULTS:
+    category: GCP Extensions
+  zGoogleCloudPlatformDatabasesModeled:
+    type: lines
+    default: ['^(?!postgres).*']
+  zGoogleCloudPlatformSubscriptionsModeled:
+    type: lines
+    default: ['.*']
+
 class_relationships:
   - ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice(cloudSQLInstances) 1:MC (project)CloudSQLInstance
   - ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice(pubSubTopics) 1:MC (project)PubSubTopic
