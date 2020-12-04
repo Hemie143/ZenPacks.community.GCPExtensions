@@ -2,8 +2,9 @@ name: ZenPacks.community.GCPExtensions
 
 class_relationships:
   - ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice(cloudSQLInstances) 1:MC (project)CloudSQLInstance
-  - ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice(subcriptions) 1:MC (project)Subcription
+  - ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice(pubSubTopics) 1:MC (project)PubSubTopic
   - CloudSQLInstance(cloudSQLDatabases) 1:MC (cloudSQLInstance)CloudSQLDatabase
+  - PubSubTopic(pubSubSubscriptions) 1:MC (pubSubTopic)PubSubSubscription
   - ZenPacks.zenoss.GoogleCloudPlatform.ComputeZone.ComputeZone(cloudSQLInstances) 1:M (zone)CloudSQLInstance
 
 classes:
@@ -57,7 +58,6 @@ classes:
         label: Database ID
         grid_display: false
 
-
   CloudSQLDatabase:
     base: [zenpacklib.Component]
     label: CloudSQL Database
@@ -75,11 +75,28 @@ classes:
       shortname:
         grid_display: false
 
-  Subcription:
+  PubSubTopic:
     base: [zenpacklib.Component]
-    label: Subscription
+    label: PubSub Topic
     properties:
       DEFAULTS:
+        grid_display: false
+
+  PubSubSubscription:
+    base: [zenpacklib.Component]
+    label: PubSub Subscription
+    properties:
+      messageRetentionDuration:
+        grid_display: false
+      deadLetterTopic:
+        grid_display: false
+      expirationPolicyTTL:
+        grid_display: false
+      retryPolicymaximumBackoff:
+        grid_display: false
+      retryPolicyminimumBackoff:
+        grid_display: false
+      ackDeadlineSeconds:
         grid_display: false
 
 device_classes:
@@ -146,3 +163,80 @@ device_classes:
               connections:
                 dpName: connections_connections
                 sequence: 1
+
+      PubSubSubscription:
+        datasources:
+          backlog_size:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              backlog_size: GAUGE
+            metric_type: pubsub.googleapis.com/subscription/backlog_bytes
+            filter_: resource.labels.subscription_id="${here/id}"
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            service: pubsub.googleapis.com
+          dead_letter_message:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              dead_letter_message: GAUGE
+            metric_type: pubsub.googleapis.com/subscription/dead_letter_message_count
+            filter_: resource.labels.subscription_id="${here/id}"
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            service: pubsub.googleapis.com
+          oldest_unacked_message:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              oldest_unacked_message: GAUGE
+            metric_type: pubsub.googleapis.com/subscription/oldest_unacked_message_age
+            filter_: resource.labels.subscription_id="${here/id}"
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            service: pubsub.googleapis.com
+          sent_msg:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              sent_msg: GAUGE
+            metric_type: pubsub.googleapis.com/subscription/sent_message_count
+            filter_: resource.labels.subscription_id="${here/id}"
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            service: pubsub.googleapis.com
+          unacked_msg:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              unacked_msg: GAUGE
+            metric_type: pubsub.googleapis.com/subscription/num_undelivered_messages
+            filter_: resource.labels.subscription_id="${here/id}"
+            perSeriesAligner: ALIGN_MEAN
+            crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
+            service: pubsub.googleapis.com
+        graphs:
+          Backlog Size:
+            units: bytes
+            base: true
+            miny: 0.0
+            graphpoints:
+              Backlog Size:
+                dpName: backlog_size_backlog_size
+          Messages:
+            units: messages
+            miny: 0.0
+            graphpoints:
+              Dead Letter Message Count:
+                dpName: dead_letter_message_dead_letter_message
+              Sent Message Count:
+                dpName: sent_msg_sent_msg
+              Unacked Message Count:
+                dpName: unacked_msg_unacked_msg
+          Age:
+            units: seconds
+            miny: 0.0
+            graphpoints:
+              Oldest unacked message age:
+                dpName: oldest_unacked_message_oldest_unacked_message

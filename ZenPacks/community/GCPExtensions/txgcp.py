@@ -41,6 +41,7 @@ class CloudSQLRequest(Request):
 
 class PubSubscriptionRequest(Request):
     def __init__(self, client, path, method="GET", data=None, scope=None):
+        LOG.debug('PubSubscriptionRequest url: {}'.format("{}/{}".format(PUBSUB_API, path)))
         super(PubSubscriptionRequest, self).__init__(
             client=client,
             url="{}/{}".format(PUBSUB_API, path),
@@ -74,8 +75,14 @@ class PubSubscription(object):
         self.client = client
         self.project = project
 
-    def instances(self):
+    def topics(self):
         return PubSubscriptionRequest(
             client=self.client,
-            path="v1/{}/subscriptions".format(
+            path="v1/projects/{}/topics".format(
+                self.project)).request()
+
+    def subscriptions(self):
+        return PubSubscriptionRequest(
+            client=self.client,
+            path="v1/projects/{}/subscriptions".format(
                 self.project)).request()

@@ -49,11 +49,9 @@ class CollectorExt(Collector):
             (project_name,)))
 
         # PubSub
-        '''
         self.operations.append((
-            self.collect_subscriptions,
+            self.collect_pubsub_topics,
             (project_name,)))
-        '''
 
         return self.collect_phase([], 1)
 
@@ -92,20 +90,37 @@ class CollectorExt(Collector):
         d.addErrback(handle_failure)
         return d
 
-    def collect_subscriptions(self, project_name):
+    def collect_pubsub_topics(self, project_name):
 
         def handle_success(result):
-            LOG.info("%s: Subscriptions are enabled", project_name)
+            LOG.info("%s: PubSub is enabled", project_name)
             return result
 
         def handle_failure(failure):
             error = getattr(failure, "error", None)
             message = getattr(error, "message", None)
-            LOG.info("%s: Subscriptions modeling failed", message)
+            LOG.info("%s: PubSub modeling failed", message)
             # Propagate any other failures.
             return failure
 
-        d = self.client.subscriptions(project_name).instances()
+        d = self.client.subscriptions(project_name).topics()
+        d.addCallback(handle_success)
+        d.addErrback(handle_failure)
+        return d
+
+    def collect_pubsub_subscriptions(self, project_name):
+
+        def handle_success(result):
+            return result
+
+        def handle_failure(failure):
+            error = getattr(failure, "error", None)
+            message = getattr(error, "message", None)
+            LOG.info("%s: PubSub Subscription modeling failed", message)
+            # Propagate any other failures.
+            return failure
+
+        d = self.client.subscriptions(project_name).subscriptions()
         d.addCallback(handle_success)
         d.addErrback(handle_failure)
         return d
@@ -123,6 +138,8 @@ class CollectorExt(Collector):
             handle_fn = getattr(self, "handle_{}".format(compute_kind), None)
         elif result.get('items') and result.get('items')[0].get('kind') == 'sql#instance':
             handle_fn = getattr(self, "handle_cloudSQLInstances", None)
+        elif result.get("topics"):
+            handle_fn = getattr(self, "handle_pubsub_topics", None)
 
         if handle_fn is not None:
             handle_fn(result)
@@ -147,6 +164,24 @@ class CollectorExt(Collector):
                 continue
             self.operations.append((self.collect_cloudsql_databases, (project_name, name)))
 
+    def handle_pubsub_topics(self, result):
+        project_name = result.get('topics')[0].get("name").split("/")[1]
+        model_regex = ".*"
+        '''
+        model_regex = validate_modeling_regex(
+            self.device, 'zGoogleCloudPlatformBigTableInstancesModeled')
+
+        if not model_regex:
+            return
+        '''
+        '''
+        for topic in result.get('topics', []):
+            topic_name = topic['labels']['name']
+            if not re.match(model_regex, topic_name):
+                continue
+        '''
+        self.operations.append((self.collect_pubsub_subscriptions, (project_name, )))
+
 
 def process(device, results, plugin_name):
     mapper = DataMapper(plugin_name)
@@ -170,6 +205,19 @@ def process(device, results, plugin_name):
                 cloudSQLInstance_map_result = map_cloudSQLInstancesList(device, result)
                 if cloudSQLInstance_map_result:
                     mapper.update(cloudSQLInstance_map_result)
+        # PubSub Topics
+        elif "topics" in result:
+            pubsub_topics_map_result = map_pubSubTopicsList(device, result)
+            if pubsub_topics_map_result:
+                mapper.update(pubsub_topics_map_result)
+        # PubSub Subscriptions
+        elif "subscriptions" in result:
+            LOG.debug('process - subscriptions')
+            pubsub_subs_map_result = map_pubSubSubscriptionsList(device, result)
+            if pubsub_subs_map_result:
+                mapper.update(pubsub_subs_map_result)
+        else:
+            LOG.debug('process result: {}'.format(result))
 
     return mapper.get_full_datamaps()
 
@@ -185,7 +233,6 @@ def map_project(device, result):
         },
     }
     return data
-
 
 def map_cloudSQLInstancesList(device, result):
     """Return data given CloudSQL instance list.
@@ -274,9 +321,9 @@ def map_cloudSQLInstancesList(device, result):
             u'certSerialNumber': u'0',
             u'kind': u'sql#sslCert',
             u'sha1Fingerprint': u'adcb02902342cec8c20fb60dcd656b6dc755f654',
-            u'commonName': u'C=US,O=Google\\, Inc,CN=Google Cloud SQL Server CA,dnQualifier=5be3d212-05c2-4ace-9d48-2f56ad2acddd',
+            u'commonName': u'C=US,O=Google\\, Inc,CN=Google Cloud SQL Server CA,dnQualifier=5be8d212-05c2-4ace-9d38-2f56ad2acddd',
             u'instance': u'sql-svc-acc-8170413f',
-            u'cert': u'-----BEGIN CERTIFICATE-----\nMIIDfzCCAmegAwIBAgIBADANBgkqhkiG9w0BAQsFADB3MS0wKwYDVQQuEyQ1YmUz\nZDIxMi0wNWMyLTRhY2UtOWQ0OC0yZjU2YWQyYWNkZGQxIzAhBgNVBAMTGkdvb2ds\nZSBDbG91ZCBTUUwgU2VydmVyIENBMRQwEgYDVQQKEwtHb29nbGUsIEluYzELMAkG\nA1UEBhMCVVMwHhcNMjAwOTE2MDY1NzUxWhcNMzAwOTE0MDY1ODUxWjB3MS0wKwYD\nVQQuEyQ1YmUzZDIxMi0wNWMyLTRhY2UtOWQ0OC0yZjU2YWQyYWNkZGQxIzAhBgNV\nBAMTGkdvb2dsZSBDbG91ZCBTUUwgU2VydmVyIENBMRQwEgYDVQQKEwtHb29nbGUs\nIEluYzELMAkGA1UEBhMCVVMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB\nAQClBEBfB2MeCFz8g2KKknrFbgVXcUTAd6GqzA97mYzERB++wVjamQ8I+bE73AtH\nyiWg9AVnn49eVEvQPN2JioDmqQ9V/DYYdDKoKEAs/NwVIencajddBaB0aZiX1XFW\nJkWFQ3jJNLjl8f1+SbGs/6Bx7ARgZpb9En2x31a+I3pFWgSwBs19lqhFSEPHq6Wt\nZmceo+mhYvfv3e1xt72shp+106HZ3wtZrdFi/y4uAJsVTErz52fOSKAsLSWML6Cg\nAbZ/xiT9Xe+L08UFo797sl+YmO5Mdt3O3Tf7Dq/hNcFNVoRsSRb0U+S//3Z/SEkT\nZf9ZdOmB9TvO1L5m5v5sKeEhAgMBAAGjFjAUMBIGA1UdEwEB/wQIMAYBAf8CAQAw\nDQYJKoZIhvcNAQELBQADggEBAKII4qbkbqAb3cwajkt9V8SmBJUVgrjiLwUJYn1x\npP8pUErChDqlNNv7WaaR0mPeLqARUE+NKcLBnYV7XzMJ92SQZ8HUs3o+Ig9xCGyJ\nFTqo870vEOwRtA9z0YXFwtLs+lGzyLTwgG3XJ2vH39GB7RXw9h4IeVKu4wWJ4X1t\nPbrTogtLyEPt/AjxnJZhvSpoe0L+tH2ET1uRD8Z6nHDoSKFxeKsKE/4Yf8H4CvtI\nvFBvFcHWnAp9Kd0vGP6MsSifUZDqqLyu68EzPee3k7YWD53eLEdxTu47vD37XJ08\nYjqEgyo2xFnZvwrhLHdhoF4x7d6Nu26bfFxMMjADNoLDYV8=\n-----END CERTIFICATE-----',
+            u'cert': u'-----BEGIN CERTIFICATE-----\nMIIDfzCCAmegAwIBAgIBADANBgkqhkiG9w0CAQsFADB3MS0wKwYDVQQuEyQ1YmUz\nZDIxMi0wNWMyLTRhY2UtOWQ0OC0yZjU2YWQyYWNkZGQxIzAhBgNVBAMTGkdvb2ds\nZSBDbG91ZCBTUUwgU2VydmVyIENBMRQwEgYDVQQKEwtHb29nbGUsIEluYzELMAkG\nA1UEBhMCVVMwHhcNMjAwOTE2MDY1NzUxWhcNMzAwOTE0MDY1ODUxWjB3MS0wKwYD\nVQQuEyQ1YmUzZDIxMi0wNWMyLTRhY2UtOWQ0OC0yZjU2YWQyYWNkZGQxIzAhBgNV\nBAMTGkdvb2dsZSBDbG91ZCBTUUwgU2VydmVyIENBMRQwEgYDVQQKEwtHb29nbGUs\nIEluYzELMAkGA1UEBhMCVVMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB\nAQClBEBfB2MeCFz8g2KKknrFbgVXcUTAd6GqzA97mYzERB++wVjamQ8I+bE73AtH\nyiWg9AVnn49eVEvQPN2JioDmqQ9V/DYYdDKoKEAs/NwVIencajddBaB0aZiX1XFW\nJkWFQ3jJNLjl8f1+SbGs/6Bx7ARgZpb9En2x31a+I3pFWgSwBs19lqhFSEPHq6Wt\nZmceo+mhYvfv3e1xt72shp+106HZ3wtZrdFi/y4uAJsVTErz52fOSKAsLSWML6Cg\nAbZ/xiT9Xe+L08UFo797sl+YmO5Mdt3O3Tf7Dq/hNcFNVoRsSRb0U+S//3Z/SEkT\nZf9ZdOmB9TvO1L5m5v5sKeEhAgMBAAGjFjAUMBIGA1UdEwEB/wQIMAYBAf8CAQAw\nDQYJKoZIhvcNAQELBQADggEBAKII4qbkbqAb3cwajkt9V8SmBJUVgrjiLwUJYn1x\npP8pUErChDqlNNv7WaaR0mPeLqARUE+NKcLBnYV7XzMJ92SQZ8HUs3o+Ig9xCGyJ\nFTqo870vEOwRtA9z0YXFwtLs+lGzyLTwgG3XJ2vH39GB7RXw9h4IeVKu4wWJ4X1t\nPbrTogtLyEPt/AjxnJZhvSpoe0L+tH2ET1uRD8Z6nHDoSKFxeKsKE/4Yf8H4CvtI\nvFBvFcHWnAp9Kd0vGP6MsSifUZDqqLyu68EzPee3k7YWD53eLEdxTu47vD37XJ08\nYjqEgyo2xFnZvwrhLHdhoF4x7d6Nu26bfFxMMjADNoLDYV8=\n-----END CERTIFICATE-----',
             u'expirationTime': u'2030-09-14T06:58:51.719Z',
             u'createTime': u'2020-09-16T06:57:51.719Z'
           },
@@ -284,7 +331,7 @@ def map_cloudSQLInstancesList(device, result):
           u'project': u'acme-acc-myapp',
           u'state': u'RUNNABLE',
           u'etag': u'48a7c5bb67d1cec2901bd3872196a97d9ec5b2852bb18aab8db2f45760f04327',
-          u'serviceAccountEmailAddress': u'p544053300745-na7gqs@gcp-sa-cloud-sql.iam.gserviceaccount.com',
+          u'serviceAccountEmailAddress': u'p123456789012-na7gqs@gcp-sa-cloud-sql.iam.gserviceaccount.com',
           u'ipAddresses': [
             {
               u'ipAddress': u'10.1.4.19',
@@ -306,7 +353,7 @@ def map_cloudSQLInstancesList(device, result):
         projectName = instance.get("project")
         gke_name = instance.get("name")
         database_id = '{}:{}'.format(projectName, gke_name)
-
+        # LOG.debug('map_cloudSQLInstancesList selfLink: {}'.format(instance["selfLink"]))
         data.update({
             get_id(instance["selfLink"]): {
                 "title": "{} / {}".format(
@@ -333,7 +380,6 @@ def map_cloudSQLInstancesList(device, result):
         })
 
     return data
-
 
 def map_databasesList(device, result):
     """
@@ -405,4 +451,114 @@ def map_databasesList(device, result):
             }
         })
 
+    return data
+
+def map_pubSubTopicsList(device, result):
+    """
+    Example result:
+      {
+        u'topics': [
+          {
+            u'labels': {
+              u'name': u'topic-app-acc-antivirus-request'
+            },
+            u'name': u'projects/acme-acc-svc/topics/topic-app-acc-antivirus-request',
+            u'messageStoragePolicy': {
+              u'allowedPersistenceRegions': [
+                u'europe-west1'
+              ]
+            }
+          },
+          {
+            u'labels': {
+              u'name': u'topic-app-acc-antivirus-response'
+            },
+            u'name': u'projects/acme-acc-svc/topics/topic-app-acc-antivirus-response',
+            u'messageStoragePolicy': {
+              u'allowedPersistenceRegions': [
+                u'europe-west1'
+              ]
+            }
+          },
+          {
+            u'labels': {
+              u'name': u'topic-app-acc-email-dlq'
+            },
+            u'name': u'projects/acme-acc-svc/topics/topic-app-acc-email-dlq',
+            u'messageStoragePolicy': {
+              u'allowedPersistenceRegions': [
+                u'europe-west1'
+              ]
+            }
+          },
+          {
+            u'labels': {
+              u'name': u'topic-app-acc-eventlog-dlq'
+            },
+            u'name': u'projects/acme-acc-svc/topics/topic-app-acc-eventlog-dlq',
+            u'messageStoragePolicy': {
+              u'allowedPersistenceRegions': [
+                u'europe-west1'
+              ]
+            }
+          }
+        ]
+      }
+    """
+    data = {}
+    for topic in result.get("topics"):
+        label = topic["labels"]["name"]
+        '''
+        data.update({
+            get_id(label): {
+                "title": label,
+                "type": "ZenPacks.community.GCPExtensions.PubSubTopic",
+                "properties": {},
+                "links": {
+                    "project": PROJECT_ID,
+                }
+            }
+        })
+        '''
+        data.update({
+            prepId(label): {
+                "title": label,
+                "type": "ZenPacks.community.GCPExtensions.PubSubTopic",
+                "properties": {
+                },
+                "links": {
+                    "project": PROJECT_ID,
+                }
+            }
+        })
+
+    return data
+
+def map_pubSubSubscriptionsList(device, result):
+    """
+    Example result:
+      {
+        u'subscriptions': [
+          u'projects/acme-acc-svc/subscriptions/topic-app-acc-email.email-service'
+        ]
+      }
+    """
+    LOG.debug('XXX map_pubSubSubscriptionsList')
+    data = {}
+    for sub in result.get("subscriptions"):
+        sub_name = sub["name"]
+        sub_shortname = sub_name.split("/")[-1]
+        topic = sub["topic"]
+        topic_id = topic.split("/")[-1]
+        data.update({
+            prepId(sub_shortname): {
+                "title": sub_shortname,
+                "type": "ZenPacks.community.GCPExtensions.PubSubSubscription",
+                "properties": {
+                    },
+                "links": {
+                    "pubSubTopic": prepId(topic_id),
+                    }
+            }
+        })
     return data
