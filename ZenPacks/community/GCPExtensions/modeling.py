@@ -53,6 +53,11 @@ class CollectorExt(Collector):
             self.collect_pubsub_topics,
             (project_name,)))
 
+        # MemoryStore
+        self.operations.append((
+            self.collect_memorystore_locations,
+            (project_name,)))
+
         return self.collect_phase([], 1)
 
     def collect_cloudsql_instances(self, project_name):
@@ -125,11 +130,50 @@ class CollectorExt(Collector):
         d.addErrback(handle_failure)
         return d
 
+    def collect_memorystore_locations(self, project_name):
+
+        def handle_success(result):
+            LOG.info("%s: MemoryStore is enabled", project_name)
+            return result
+
+        def handle_failure(failure):
+            error = getattr(failure, "error", None)
+            message = getattr(error, "message", None)
+            LOG.info("%s: MemoryStore modeling failed", message)
+            # Propagate any other failures.
+            return failure
+
+        d = self.client.memorystore(project_name).locations()
+        d.addCallback(handle_success)
+        d.addErrback(handle_failure)
+        return d
+
+    def collect_memorystore_instances(self, project_name):
+
+        def handle_success(result):
+            LOG.info("%s: MemoryStore is enabled", project_name)
+            return result
+
+        def handle_failure(failure):
+            error = getattr(failure, "error", None)
+            message = getattr(error, "message", None)
+            LOG.info("%s: MemoryStore modeling failed", message)
+            # Propagate any other failures.
+            return failure
+
+        d = self.client.memorystore(project_name).instances()
+        d.addCallback(handle_success)
+        d.addErrback(handle_failure)
+        return d
+
+
     def handle_result(self, result):
         """Dispatch result to appropriate handle_* method."""
         if not result:
             return {}
         self.results.append(result)
+
+        LOG.debug("handle_result : {}".format([k for k in result]))
 
         kind = result.get("kind")
         handle_fn = None
@@ -140,6 +184,8 @@ class CollectorExt(Collector):
             handle_fn = getattr(self, "handle_cloudSQLInstances", None)
         elif result.get("topics"):
             handle_fn = getattr(self, "handle_pubsub_topics", None)
+        elif result.get("locations"):
+            handle_fn = getattr(self, "handle_memorystore_locations", None)
 
         if handle_fn is not None:
             handle_fn(result)
@@ -182,6 +228,10 @@ class CollectorExt(Collector):
         '''
         self.operations.append((self.collect_pubsub_subscriptions, (project_name, )))
 
+    def handle_memorystore_locations(self, result):
+        project_name = result.get('locations')[0].get("name").split("/")[1]
+        self.operations.append((self.collect_memorystore_instances, (project_name, )))
+
 
 def process(device, results, plugin_name):
     mapper = DataMapper(plugin_name)
@@ -212,12 +262,27 @@ def process(device, results, plugin_name):
                 mapper.update(pubsub_topics_map_result)
         # PubSub Subscriptions
         elif "subscriptions" in result:
-            LOG.debug('process - subscriptions')
             pubsub_subs_map_result = map_pubSubSubscriptionsList(device, result)
             if pubsub_subs_map_result:
                 mapper.update(pubsub_subs_map_result)
+        elif "locations" in result:
+            memorystore_locations_map_result = map_memoryStoreLocationsList(device, result)
+            if memorystore_locations_map_result:
+                mapper.update(memorystore_locations_map_result)
+        elif "instances" in result:
+            memorystore_instances_map_result = map_memoryStoreInstancesList(device, result)
+            if memorystore_instances_map_result:
+                mapper.update(memorystore_instances_map_result)
         else:
             LOG.debug('process result: {}'.format(result))
+
+    '''
+    # Prevent modeling of zones with no instances.
+    zone_type = "ZenPacks.zenoss.GoogleCloudPlatform.ComputeZone"
+    for zone_id, zone_datum in mapper.by_type(zone_type):
+        if not zone_datum["links"].get("instances"):
+            mapper.remove(zone_id)
+    '''
 
     return mapper.get_full_datamaps()
 
@@ -509,6 +574,9 @@ def map_pubSubTopicsList(device, result):
     """
     data = {}
     for topic in result.get("topics"):
+        # TODO: get label from name field ?
+        if "labels" not in topic:
+            continue
         label = topic["labels"]["name"]
         data.update({
             prepId(label): {
@@ -533,6 +601,7 @@ def map_pubSubSubscriptionsList(device, result):
         ]
       }
     """
+    # TODO: Non-DLQ subscriptions are not linked to their respective topic ?
     data = {}
     model_regex = validate_modeling_regex(device, 'zGoogleCloudPlatformSubscriptionsModeled')
     for sub in result.get("subscriptions"):
@@ -542,16 +611,19 @@ def map_pubSubSubscriptionsList(device, result):
             continue
         topic = sub["topic"]
         topic_id = topic.split("/")[-1]
+        deadLetterTopic = sub.get("deadLetterPolicy", {}).get("deadLetterTopic", "-")
+        retryPolicymaximumBackoff = sub.get("retryPolicy", {}).get("maximumBackoff", "-")
+        retryPolicyminimumBackoff = sub.get("retryPolicy", {}).get("minimumBackoff", "-")
         data.update({
             prepId(sub_shortname): {
                 "title": sub_shortname,
                 "type": "ZenPacks.community.GCPExtensions.PubSubSubscription",
                 "properties": {
                     "messageRetentionDuration": sub["messageRetentionDuration"],
-                    "deadLetterTopic": sub["deadLetterPolicy"]["deadLetterTopic"],
+                    "deadLetterTopic": deadLetterTopic,
                     "expirationPolicyTTL": sub["expirationPolicy"]["ttl"],
-                    "retryPolicymaximumBackoff": sub["retryPolicy"]["maximumBackoff"],
-                    "retryPolicyminimumBackoff": sub["retryPolicy"]["minimumBackoff"],
+                    "retryPolicymaximumBackoff": retryPolicymaximumBackoff,
+                    "retryPolicyminimumBackoff": retryPolicyminimumBackoff,
                     "ackDeadlineSeconds": sub["ackDeadlineSeconds"],
                     },
                 "links": {
@@ -559,4 +631,89 @@ def map_pubSubSubscriptionsList(device, result):
                     }
             }
         })
+    return data
+
+def map_memoryStoreLocationsList(device, result):
+    """
+    Example result:
+    {
+      u'locations': [
+        {
+          u'locationId': u'asia-east1',
+          u'name': u'projects/acme-acc-svc/locations/asia-east1',
+          u'metadata': {
+            u'availableZones': {
+              u'asia-east1-b': {
+
+              },
+              u'asia-east1-c': {
+
+              },
+              u'asia-east1-a': {
+
+              }
+            },
+            u'@type': u'type.googleapis.com/google.cloud.redis.v1beta1.LocationMetadata'
+          }
+        },
+        ...
+    }
+    """
+    data = {}
+    # model_regex = validate_modeling_regex(device, 'zGoogleCloudPlatformSubscriptionsModeled')
+    for location in result.get("locations"):
+        location_id = prepId('region_{}'.format(location["locationId"]))
+        location_label = location["locationId"]
+        data.update({
+            location_id: {
+                "title": location_label,
+                "type": "ZenPacks.zenoss.GoogleCloudPlatform.ComputeRegion",
+                "properties": {
+                    },
+                "links": {
+                    "project": PROJECT_ID,
+                    }
+            }
+        })
+
+    return data
+
+def map_memoryStoreInstancesList(device, result):
+    """
+    Example result:
+      {
+        u'subscriptions': [
+          u'projects/acme-acc-svc/subscriptions/topic-app-acc-email.email-service'
+        ]
+      }
+    """
+    data = {}
+    # model_regex = validate_modeling_regex(device, 'zGoogleCloudPlatformSubscriptionsModeled')
+    for instance in result.get("instances"):
+        id = prepId(instance["name"].split("/")[-1])
+        # TODO: fix relationship to zone
+        zone_id = 'zone_{}'.format(instance["currentLocationId"])
+        '''
+        if not re.match(model_regex, sub_shortname):
+            continue
+        '''
+        data.update({
+            id: {
+                "title": instance["displayName"],
+                "type": "ZenPacks.community.GCPExtensions.MemoryStore",
+                "properties": {
+                    "instance_id": instance["name"],
+                    "reservedIpRange": instance["reservedIpRange"],
+                    "redisVersion": instance["redisVersion"],
+                    "host": instance["host"],
+                    "port": instance["port"],
+                    "memorySizeGb": instance["memorySizeGb"],
+                    },
+                "links": {
+                    "project": PROJECT_ID,
+                    "zone": prepId(zone_id),
+                    }
+            }
+        })
+
     return data

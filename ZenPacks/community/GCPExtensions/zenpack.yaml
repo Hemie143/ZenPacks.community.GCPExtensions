@@ -11,11 +11,21 @@ zProperties:
     default: ['.*']
 
 class_relationships:
+
+  # 1:MC containing relationships.
+  # ---------------------------------------------------------------------------
+
   - ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice(cloudSQLInstances) 1:MC (project)CloudSQLInstance
   - ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice(pubSubTopics) 1:MC (project)PubSubTopic
+  - ZenPacks.zenoss.GoogleCloudPlatform.ProjectDevice.ProjectDevice(memoryStores) 1:MC (project)MemoryStore
   - CloudSQLInstance(cloudSQLDatabases) 1:MC (cloudSQLInstance)CloudSQLDatabase
   - PubSubTopic(pubSubSubscriptions) 1:MC (pubSubTopic)PubSubSubscription
+
+  # 1:M non-containing relationships.
+  # ---------------------------------------------------------------------------
+
   - ZenPacks.zenoss.GoogleCloudPlatform.ComputeZone.ComputeZone(cloudSQLInstances) 1:M (zone)CloudSQLInstance
+  - ZenPacks.zenoss.GoogleCloudPlatform.ComputeZone.ComputeZone(memoryStores) 1:M (zone)MemoryStore
 
 classes:
 
@@ -109,6 +119,27 @@ classes:
       ackDeadlineSeconds:
         grid_display: false
 
+  MemoryStore:
+    base: [zenpacklib.Component]
+    label: Memory Store
+    properties:
+      reservedIpRange:
+        grid_display: false
+      instance_id:
+        grid_display: false
+      redisVersion:
+        label: Redis version
+        grid_display: true
+      host:
+        label: Host
+        grid_display: true
+      port:
+        label: Port
+        grid_display: true
+      memorySizeGb:
+        label: Memory (Gb)
+        grid_display: true
+
 device_classes:
   /GoogleCloudPlatform:
 
@@ -179,7 +210,7 @@ device_classes:
           backlog_size:
             type: Google Cloud Platform Stackdriver Monitoring
             datapoints:
-              backlog_size: GAUGE
+              backlog_size: GAUGE_MIN_0
             metric_type: pubsub.googleapis.com/subscription/backlog_bytes
             filter_: resource.labels.subscription_id="${here/id}"
             perSeriesAligner: ALIGN_MEAN
@@ -189,7 +220,7 @@ device_classes:
           dead_letter_message:
             type: Google Cloud Platform Stackdriver Monitoring
             datapoints:
-              dead_letter_message: GAUGE
+              dead_letter_message: GAUGE_MIN_0
             metric_type: pubsub.googleapis.com/subscription/dead_letter_message_count
             filter_: resource.labels.subscription_id="${here/id}"
             perSeriesAligner: ALIGN_MEAN
@@ -199,7 +230,7 @@ device_classes:
           oldest_unacked_message:
             type: Google Cloud Platform Stackdriver Monitoring
             datapoints:
-              oldest_unacked_message: GAUGE
+              oldest_unacked_message: GAUGE_MIN_0
             metric_type: pubsub.googleapis.com/subscription/oldest_unacked_message_age
             filter_: resource.labels.subscription_id="${here/id}"
             perSeriesAligner: ALIGN_MEAN
@@ -209,7 +240,7 @@ device_classes:
           sent_msg:
             type: Google Cloud Platform Stackdriver Monitoring
             datapoints:
-              sent_msg: GAUGE
+              sent_msg: GAUGE_MIN_0
             metric_type: pubsub.googleapis.com/subscription/sent_message_count
             filter_: resource.labels.subscription_id="${here/id}"
             perSeriesAligner: ALIGN_MEAN
@@ -219,7 +250,7 @@ device_classes:
           unacked_msg:
             type: Google Cloud Platform Stackdriver Monitoring
             datapoints:
-              unacked_msg: GAUGE
+              unacked_msg: GAUGE_MIN_0
             metric_type: pubsub.googleapis.com/subscription/num_undelivered_messages
             filter_: resource.labels.subscription_id="${here/id}"
             perSeriesAligner: ALIGN_MEAN
@@ -250,3 +281,57 @@ device_classes:
             graphpoints:
               Oldest unacked message age:
                 dpName: oldest_unacked_message_oldest_unacked_message
+
+      MemoryStore:
+        datasources:
+          uptime:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              uptime: GAUGE_MIN_0
+            metric_type: redis.googleapis.com/server/uptime
+            filter_: resource.labels.instance_id="${here/instance_id}"
+            perSeriesAligner: ALIGN_NONE
+            crossSeriesReducer: REDUCE_NONE
+            service: redis.googleapis.com
+          memory_usage:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              memory_usage: GAUGE_MIN_0
+            metric_type: redis.googleapis.com/stats/memory/usage_ratio
+            filter_: resource.labels.instance_id="${here/instance_id}"
+            perSeriesAligner: ALIGN_NONE
+            crossSeriesReducer: REDUCE_NONE
+            service: redis.googleapis.com
+          cachehit_ratio:
+            type: Google Cloud Platform Stackdriver Monitoring
+            datapoints:
+              cachehit_ratio: GAUGE_MIN_0
+            metric_type: redis.googleapis.com/stats/cache_hit_ratio
+            filter_: resource.labels.instance_id="${here/instance_id}"
+            perSeriesAligner: ALIGN_NONE
+            crossSeriesReducer: REDUCE_NONE
+            service: redis.googleapis.com
+        graphs:
+          Uptime:
+            units: hours
+            miny: 0.0
+            graphpoints:
+              Uptime:
+                dpName: uptime_uptime
+                rpn: 3600, /
+          Memory Usage:
+            units: percent
+            miny: 0.0
+            maxy: 100.0
+            graphpoints:
+              Memory Usage:
+                dpName: memory_usage_memory_usage
+                rpn: 100, *
+          Cache Hit Ratio:
+            units: percent
+            miny: 0.0
+            maxy: 100.0
+            graphpoints:
+              Cache Hit Ratio:
+                dpName: cachehit_ratio_cachehit_ratio
+                rpn: 100, *

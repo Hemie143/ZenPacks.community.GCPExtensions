@@ -13,6 +13,7 @@ from ZenPacks.zenoss.GoogleCloudPlatform.txgcp import Client, TokenManager, Comp
 # Service URLs
 PUBSUB_API = "https://pubsub.googleapis.com"
 CLOUDSQL_API = "https://sqladmin.googleapis.com/sql/v1beta4"
+REDIS_API = "https://redis.googleapis.com"
 
 # Auth Scopes
 SCOPE_CLOUD_PLATFORM = "https://www.googleapis.com/auth/cloud-platform"
@@ -26,6 +27,9 @@ class ClientExt(Client):
 
     def subscriptions(self, project):
         return PubSubscription(self, project)
+
+    def memorystore(self, project):
+        return MemoryStore(self, project)
 
 # Request Types ##############################################################
 
@@ -41,7 +45,6 @@ class CloudSQLRequest(Request):
 
 class PubSubscriptionRequest(Request):
     def __init__(self, client, path, method="GET", data=None, scope=None):
-        LOG.debug('PubSubscriptionRequest url: {}'.format("{}/{}".format(PUBSUB_API, path)))
         super(PubSubscriptionRequest, self).__init__(
             client=client,
             url="{}/{}".format(PUBSUB_API, path),
@@ -49,6 +52,16 @@ class PubSubscriptionRequest(Request):
             data=data,
             scope=scope if scope else SCOPE_CLOUD_PLATFORM)
 
+
+class MemoryStoreRequest(Request):
+    def __init__(self, client, path, method="GET", data=None, scope=None):
+        LOG.debug('MemoryStoreRequest url: {}'.format("{}/{}".format(REDIS_API, path)))
+        super(MemoryStoreRequest, self).__init__(
+            client=client,
+            url="{}/{}".format(REDIS_API, path),
+            method=method,
+            data=data,
+            scope=scope if scope else SCOPE_CLOUD_PLATFORM)
 
 # Request Issuer Types #######################################################
 
@@ -85,4 +98,22 @@ class PubSubscription(object):
         return PubSubscriptionRequest(
             client=self.client,
             path="v1/projects/{}/subscriptions".format(
+                self.project)).request()
+
+
+class MemoryStore(object):
+    def __init__(self, client, project):
+        self.client = client
+        self.project = project
+
+    def locations(self):
+        return MemoryStoreRequest(
+            client=self.client,
+            path="v1/projects/{}/locations".format(
+                self.project)).request()
+
+    def instances(self):
+        return MemoryStoreRequest(
+            client=self.client,
+            path="v1/projects/{}/locations/-/instances".format(
                 self.project)).request()
