@@ -54,8 +54,9 @@ class CollectorExt(Collector):
             (project_name,)))
 
         # MemoryStore
+        # TODO: collect locations & zones
         self.operations.append((
-            self.collect_memorystore_locations,
+            self.collect_memorystore_instances,
             (project_name,)))
 
         return self.collect_phase([], 1)
@@ -172,9 +173,6 @@ class CollectorExt(Collector):
         if not result:
             return {}
         self.results.append(result)
-
-        LOG.debug("handle_result : {}".format([k for k in result]))
-
         kind = result.get("kind")
         handle_fn = None
         if kind:
@@ -675,7 +673,9 @@ def map_memoryStoreLocationsList(device, result):
                     }
             }
         })
-
+    # TODO: Don't add Regions for now
+    # TODO: Instance is actually bound to a Zone, the zones should also me mapped
+    data = {}
     return data
 
 def map_memoryStoreInstancesList(device, result):

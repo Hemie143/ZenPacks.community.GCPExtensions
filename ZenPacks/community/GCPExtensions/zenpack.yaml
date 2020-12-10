@@ -310,6 +310,7 @@ device_classes:
             filter_: resource.labels.instance_id="${here/instance_id}"
             perSeriesAligner: ALIGN_NONE
             crossSeriesReducer: REDUCE_NONE
+            aggregator: SUM_OR_ZERO
             service: redis.googleapis.com
         graphs:
           Uptime:
