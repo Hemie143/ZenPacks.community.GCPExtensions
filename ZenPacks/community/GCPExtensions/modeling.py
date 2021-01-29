@@ -575,6 +575,7 @@ def map_pubSubTopicsList(device, result):
         # TODO: get label from name field ?
         if "labels" not in topic:
             continue
+        # TODO: BUG : KeyError: 'labels'
         label = topic["labels"]["name"]
         data.update({
             prepId(label): {
@@ -609,6 +610,7 @@ def map_pubSubSubscriptionsList(device, result):
             continue
         topic = sub["topic"]
         topic_id = topic.split("/")[-1]
+        # TODO: BUG :  KeyError: 'deadLetterPolicy'
         deadLetterTopic = sub.get("deadLetterPolicy", {}).get("deadLetterTopic", "-")
         retryPolicymaximumBackoff = sub.get("retryPolicy", {}).get("maximumBackoff", "-")
         retryPolicyminimumBackoff = sub.get("retryPolicy", {}).get("minimumBackoff", "-")

@@ -167,6 +167,19 @@ device_classes:
             service: cloudsql.googleapis.com
             datapoints:
               mem_utilization: GAUGE_MIN_0_MAX_100
+        thresholds:
+          MemoryUsage:
+            dsnames:
+            - mem_utilization_mem_utilization
+            eventClass: /Status/GCPExt/CloudSQL
+            severity: 4
+            maxval: '90'
+          CPUUsage:
+            dsnames:
+            - cpu_utilization_cpu_utilization
+            eventClass: /Status/GCPExt/CloudSQL
+            severity: 4
+            maxval: '90'
         graphs:
           CPU Utilization:
             units: percent
@@ -257,6 +270,25 @@ device_classes:
             crossSeriesReducer: REDUCE_NONE
             aggregator: SUM_OR_ZERO
             service: pubsub.googleapis.com
+        thresholds:
+          DLQ:
+            dsnames:
+            - dead_letter_message_dead_letter_message
+            eventClass: /Status/GCPExt/PubSub
+            maxval: '0'
+          BackLogSize:
+            dsnames:
+            - backlog_size_backlog_size
+            eventClass: /Status/GCPExt/PubSub
+            maxval: '2048'
+            timePeriod: 15 minutes
+          OldUnAck:
+            dsnames:
+            - oldest_unacked_message_oldest_unacked_message
+            eventClass: /Status/GCPExt/PubSub
+            maxval: '20'
+            timePeriod: 15 minutes
+
         graphs:
           Backlog Size:
             units: bytes
@@ -312,6 +344,24 @@ device_classes:
             crossSeriesReducer: REDUCE_NONE
             aggregator: SUM_OR_ZERO
             service: redis.googleapis.com
+        thresholds:
+          RestartMemory:
+            dsnames:
+            - uptime_uptime
+            eventClass: /Status/GCPExt/MemoryStore
+            minval: '600'
+            timePeriod: 10 minutes
+          MemoryUsage:
+            dsnames:
+            - memory_usage_memory_usage
+            eventClass: /Status/GCPExt/MemoryStore
+            maxval: '50'
+          CacheHitRatio:
+            dsnames:
+            - cachehit_ratio_cachehit_ratio
+            eventClass: /Status/GCPExt/MemoryStore
+            minval: '20'
+            timePeriod: 8 hours
         graphs:
           Uptime:
             units: hours
@@ -336,3 +386,43 @@ device_classes:
               Cache Hit Ratio:
                 dpName: cachehit_ratio_cachehit_ratio
                 rpn: 100, *
+
+event_classes:
+  /Status/GCPExt:
+    remove: false
+  /Status/GCPExt/CloudSQL:
+    remove: false
+    transform: |-
+      if 'connections_connections' in evt.eventKey:
+        msg = 'CloudSQL Database {} has {} connections'.format(component.title, int(float(evt.current)))
+      elif 'cpu_utilization_cpu_utilization' in evt.eventKey:
+        msg = 'CloudSQL Instance {} - CPU usage is {:.2f}%'.format(component.title, float(evt.current))
+      elif 'mem_utilization_mem_utilization' in evt.eventKey:
+        msg = 'CloudSQL Instance {} - Memory usage is {:.2f}%'.format(component.title, float(evt.current))
+      evt.message = msg
+      evt.summary = msg
+
+  /Status/GCPExt/MemoryStore:
+    remove: false
+    transform: |-
+      if 'cachehit_ratio_cachehit_ratio' in evt.eventKey:
+        msg = 'MemoryStore {} - Cache hit ratio is {:.2f}%'.format(component.title, float(evt.current))
+      elif 'uptime_uptime' in evt.eventKey:
+        msg = 'MemoryStore {} has restarted multiple times'.format(component.title)
+      elif 'memory_usage_memory_usage' in evt.eventKey:
+        msg = 'MemoryStore {} - Memory usage is {:.2f}%'.format(component.title, float(evt.current))
+      evt.message = msg
+      evt.summary = msg
+
+  /Status/GCPExt/PubSub:
+    remove: false
+    transform: |-
+      if 'dead_letter_message_dead_letter_message' in evt.eventKey:
+        msg = 'PubSub {} - DLQ contains {} messages'.format(component.title, int(float(evt.current)))
+      elif 'backlog_size_backlog_size' in evt.eventKey:
+        msg = 'PubSub {} - Backlog size is {} bytes'.format(component.title, int(float(evt.current)))
+      elif 'oldest_unacked_message_oldest_unacked_message' in evt.eventKey:
+        msg = 'PubSub {} - Oldest unacked msg is {} seconds old'.format(component.title, int(float(evt.current)))
+      evt.message = msg
+      evt.summary = msg
+
