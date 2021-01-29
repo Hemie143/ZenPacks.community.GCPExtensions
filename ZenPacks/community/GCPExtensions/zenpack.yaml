@@ -425,4 +425,3 @@ event_classes:
         msg = 'PubSub {} - Oldest unacked msg is {} seconds old'.format(component.title, int(float(evt.current)))
       evt.message = msg
       evt.summary = msg
-
