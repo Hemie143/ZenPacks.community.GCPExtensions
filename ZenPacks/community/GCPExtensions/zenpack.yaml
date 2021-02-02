@@ -399,8 +399,9 @@ event_classes:
         msg = 'CloudSQL Instance {} - CPU usage is {:.2f}%'.format(component.title, float(evt.current))
       elif 'mem_utilization_mem_utilization' in evt.eventKey:
         msg = 'CloudSQL Instance {} - Memory usage is {:.2f}%'.format(component.title, float(evt.current))
-      evt.message = msg
-      evt.summary = msg
+      if msg:
+        evt.message = msg
+        evt.summary = msg
 
   /Status/GCPExt/MemoryStore:
     remove: false
@@ -411,8 +412,9 @@ event_classes:
         msg = 'MemoryStore {} has restarted multiple times'.format(component.title)
       elif 'memory_usage_memory_usage' in evt.eventKey:
         msg = 'MemoryStore {} - Memory usage is {:.2f}%'.format(component.title, float(evt.current))
-      evt.message = msg
-      evt.summary = msg
+      if msg:
+        evt.message = msg
+        evt.summary = msg
 
   /Status/GCPExt/PubSub:
     remove: false
@@ -423,5 +425,6 @@ event_classes:
         msg = 'PubSub {} - Backlog size is {} bytes'.format(component.title, int(float(evt.current)))
       elif 'oldest_unacked_message_oldest_unacked_message' in evt.eventKey:
         msg = 'PubSub {} - Oldest unacked msg is {} seconds old'.format(component.title, int(float(evt.current)))
-      evt.message = msg
-      evt.summary = msg
+      if msg:
+        evt.message = msg
+        evt.summary = msg
