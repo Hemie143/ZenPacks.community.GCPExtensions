@@ -277,12 +277,14 @@ device_classes:
             eventClass: /Status/GCPExt/PubSub
             maxval: '0'
           BackLogSize:
+            type: DurationThreshold
             dsnames:
             - backlog_size_backlog_size
             eventClass: /Status/GCPExt/PubSub
             maxval: '2048'
             timePeriod: 15 minutes
           OldUnAck:
+            type: DurationThreshold
             dsnames:
             - oldest_unacked_message_oldest_unacked_message
             eventClass: /Status/GCPExt/PubSub
@@ -323,6 +325,7 @@ device_classes:
             metric_type: redis.googleapis.com/server/uptime
             filter_: resource.labels.instance_id="${here/instance_id}"
             perSeriesAligner: ALIGN_NONE
+            aggregator: SUM_OR_ZERO
             crossSeriesReducer: REDUCE_NONE
             service: redis.googleapis.com
           memory_usage:
@@ -346,6 +349,7 @@ device_classes:
             service: redis.googleapis.com
         thresholds:
           RestartMemory:
+            type: DurationThreshold
             dsnames:
             - uptime_uptime
             eventClass: /Status/GCPExt/MemoryStore
@@ -357,6 +361,7 @@ device_classes:
             eventClass: /Status/GCPExt/MemoryStore
             maxval: '50'
           CacheHitRatio:
+            type: DurationThreshold
             dsnames:
             - cachehit_ratio_cachehit_ratio
             eventClass: /Status/GCPExt/MemoryStore
