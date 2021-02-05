@@ -365,7 +365,7 @@ device_classes:
             dsnames:
             - cachehit_ratio_cachehit_ratio
             eventClass: /Status/GCPExt/MemoryStore
-            minval: '20'
+            minval: '0.2'
             timePeriod: 8 hours
         graphs:
           Uptime:
@@ -412,7 +412,7 @@ event_classes:
     remove: false
     transform: |-
       if 'cachehit_ratio_cachehit_ratio' in evt.eventKey:
-        msg = 'MemoryStore {} - Cache hit ratio is {:.2f}%'.format(component.title, float(evt.current))
+        msg = 'MemoryStore {} - Cache hit ratio is {:.2f}%'.format(component.title, float(evt.current) * 100)
       elif 'uptime_uptime' in evt.eventKey:
         msg = 'MemoryStore {} has restarted multiple times'.format(component.title)
       elif 'memory_usage_memory_usage' in evt.eventKey:
