@@ -177,7 +177,7 @@ device_classes:
             eventClass: /Unknown
             filter_: resource.labels.database_id="${here/database_id}"
             metric_type: cloudsql.googleapis.com/database/network/connections
-            perSeriesAligner: ALIGN_MEAN
+            perSeriesAligner: ALIGN_MAX
             service: cloudsql.googleapis.com
             type: Google Cloud Platform Stackdriver Monitoring
         thresholds:
