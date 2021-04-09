@@ -167,6 +167,19 @@ device_classes:
             service: cloudsql.googleapis.com
             datapoints:
               mem_utilization: GAUGE_MIN_0_MAX_100
+          connections:
+            aggregator: SUM_OR_ZERO
+            component: ${here/id}
+            cycletime: ${here/zGoogleCloudPlatformStackDriverMonitoringInterval}
+            datapoints:
+              connections:
+                rrdtype: GAUGE
+            eventClass: /Unknown
+            filter_: resource.labels.database_id="${here/database_id}"
+            metric_type: cloudsql.googleapis.com/database/network/connections
+            perSeriesAligner: ALIGN_MEAN
+            service: cloudsql.googleapis.com
+            type: Google Cloud Platform Stackdriver Monitoring
         thresholds:
           MemoryUsage:
             dsnames:
@@ -185,6 +198,7 @@ device_classes:
             units: percent
             miny: 0.0
             maxy: 100.0
+            sequence: 1
             graphpoints:
               CPU Utilization:
                 dpName: cpu_utilization_cpu_utilization
@@ -193,10 +207,20 @@ device_classes:
             units: percent
             miny: 0.0
             maxy: 100.0
+            sequence: 2
             graphpoints:
               Memory Utilization:
                 dpName: mem_utilization_mem_utilization
                 sequence: 1
+          Connections:
+            units: connections
+            miny: 0.0
+            sequence: 3
+            graphpoints:
+              connections:
+                description: connections_connections
+                dpName: connections_connections
+                legend: ${graphPoint/id}
 
       CloudSQLDatabase:
         targetPythonClass: ZenPacks.community.GCPExtensions.CloudSQLDatabase
