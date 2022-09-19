@@ -198,27 +198,21 @@ device_classes:
             units: percent
             miny: 0.0
             maxy: 100.0
-            sequence: 1
             graphpoints:
               CPU Utilization:
                 dpName: cpu_utilization_cpu_utilization
-                sequence: 1
           Memory Utilization:
             units: percent
             miny: 0.0
             maxy: 100.0
-            sequence: 2
             graphpoints:
               Memory Utilization:
                 dpName: mem_utilization_mem_utilization
-                sequence: 1
           Connections:
             units: connections
             miny: 0.0
-            sequence: 3
             graphpoints:
               connections:
-                description: connections_connections
                 dpName: connections_connections
                 legend: ${graphPoint/id}
 
@@ -240,7 +234,6 @@ device_classes:
             graphpoints:
               connections:
                 dpName: connections_connections
-                sequence: 1
 
       PubSubSubscription:
         datasources:
