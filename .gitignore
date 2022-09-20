@@ -5,3 +5,4 @@ setuptools*
 *.egg-info/
 *EGG-INFO*
 .idea/
+dist/

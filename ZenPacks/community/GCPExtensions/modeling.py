@@ -615,10 +615,6 @@ def map_pubSubSubscriptionsList(device, result):
         retryPolicymaximumBackoff = sub.get("retryPolicy", {}).get("maximumBackoff", "-")
         retryPolicyminimumBackoff = sub.get("retryPolicy", {}).get("minimumBackoff", "-")
         ttl = sub.get("expirationPolicy", {}).get("ttl", "-")
-
-        LOG.debug('*** sub: {}'.format(sub))
-
-
         data.update({
             prepId(sub_shortname): {
                 "title": sub_shortname,
